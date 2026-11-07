@@ -45,6 +45,7 @@ infra/           # Terraform
 ```
 
 Règles :
+
 - Les dépendances pointent vers l'intérieur : `http` → `application` → `domain`. Le domaine n'importe jamais rien d'un autre dossier.
 - Les adaptateurs implémentent un port ; un même jeu de tests de contrat tourne sur l'implémentation in-memory et DynamoDB.
 - Pas de logique métier dans les routes : une route valide, appelle un cas d'usage, formate la réponse.
