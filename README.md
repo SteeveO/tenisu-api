@@ -138,14 +138,7 @@ Chaque choix est consigné avec son motif et les alternatives écartées dans le
 
 `main` est protégée : pull request et CI verte obligatoires, ni force push ni suppression, fusion en squash ([D29](docs/decisions/v1/decisions.md#d29-branche-main-protégée)). Chaque pull request reçoit en commentaire le `terraform plan` de ses changements, avec un rôle AWS en lecture seule. Un push sur `main` applique Terraform puis charge les données initiales, sans étape manuelle.
 
-La mise en place initiale ne se fait qu'une fois, avec un compte administrateur :
-
-```bash
-aws sso login --profile tenisu
-cd infra/bootstrap
-AWS_PROFILE=tenisu terraform init
-AWS_PROFILE=tenisu terraform apply
-```
+L'infrastructure qui doit exister avant le premier déploiement (state Terraform, OIDC, rôles GitHub) est dans `infra/bootstrap`, appliquée une seule fois à la main avec un compte administrateur ([D38](docs/decisions/v1/decisions.md#d38-infrastructure-terraform-et-déploiement-par-oidc)). Elle est propre à mon compte AWS : un relecteur n'en a pas besoin, ni pour appeler l'API déployée ni pour lancer le projet en local.
 
 ## Limites connues et ce que je ferais ensuite
 
@@ -160,7 +153,7 @@ AWS_PROFILE=tenisu terraform apply
 J'ai réalisé ce projet avec Claude Code, qui a écrit l'essentiel du code. J'ai travaillé ainsi :
 
 - **Le découpage et les décisions sont les miens :** tickets Linear, choix d'architecture et de périmètre, arbitrages. Le front et l'upload de photos ont par exemple été retirés sur décision de ma part.
-- **Relecture critique à chaque pull request :** une seconde instance relisait les changements, et je décidais des remarques à retenir. Toutes les pull requests sont passées par la CI avant que je les fusionne.
+- **Relecture critique à chaque pull request :** je relisais les changements, une seconde instance de Claude aussi, et je décidais des remarques à retenir. Toutes les pull requests sont passées par la CI avant que je les fusionne.
 - **Décisions consignées au fil de l'eau** dans le journal, avec leurs motifs et les alternatives écartées, pour pouvoir justifier chaque choix.
 
 ## Organisation du contexte
