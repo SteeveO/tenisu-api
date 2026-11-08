@@ -63,6 +63,7 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D10. Environnement local avec Docker Compose
 
+- **Statut** : précisée par D37.
 - **Décision** : `docker compose up` lance DynamoDB Local et LocalStack (S3), crée la table et le bucket, puis charge les données. Un mode « mémoire » (variable d'environnement) permet aussi de lancer l'API sans aucune dépendance.
 - **Pourquoi** : n'importe quel relecteur peut tester le projet en une commande, sans compte AWS, avec la même configuration qu'en production à l'adresse près.
 - **Alternatives écartées** : SAM local (lourd, lié à l'outillage AWS) ; MinIO (possible, mais LocalStack reproduit plus fidèlement les URLs présignées S3).
@@ -145,6 +146,7 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D22. Seed idempotent
 
+- **Statut** : précisée par D37 (le seed insère ce qui manque et n'écrase plus les joueurs existants).
 - **Décision** : relancer le seed réécrit les joueurs initiaux, mais ne fait monter le compteur qu'au besoin : mise à jour conditionnelle (le compteur n'est fixé au plus grand id initial que s'il est absent ou inférieur).
 - **Pourquoi** : relancer le seed ne doit jamais provoquer de collision avec des joueurs créés depuis.
 
@@ -235,6 +237,21 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Bornes de plausibilité** : en plus des bornes de D34, `data.height` est compris entre 100 et 250 cm et `data.weight` entre 30 000 et 200 000 g, car une valeur impossible fausserait l'IMC moyen. `country.code` est accepté en minuscules et converti en majuscules.
 - **Pourquoi** : un consommateur existant, par exemple un front déjà prêt, doit pouvoir utiliser l'API sans adaptation : on ne casse pas un contrat de données fourni. L'enveloppe `players` permettra aussi d'ajouter un curseur de pagination (D27) à côté de la liste sans rien casser, ce qu'un tableau nu ne permet pas. La clarté des unités est obtenue par la documentation et par les noms du domaine, sans changer le contrat.
 - **Alternatives écartées** : format à plat avec les unités dans les noms (`weightGrams`), plus lisible mais qui casse le contrat d'origine ; ignorer les champs inconnus (un `id` envoyé par le client serait silencieusement perdu).
+
+## D37. Environnement local et chargement des données initiales
+
+- **Décision** :
+  - `docker compose up` lance DynamoDB Local, LocalStack (S3), un conteneur `seed` qui s'arrête une fois les données chargées, et l'API sur le port 3000 : seul Docker ou Podman est nécessaire. Le seed attend lui-même les émulateurs, et les noms d'images sont écrits en entier, pour fonctionner avec les deux outils.
+  - Pour développer : `docker compose up -d seed` lance tout sauf l'API, qui tourne alors sur la machine avec `npm run dev`.
+  - `npm run dev` lit `local.env` et utilise DynamoDB Local ; `npm run dev:memory` (`STORAGE=memory`) démarre sans aucun conteneur, avec les joueurs initiaux en mémoire.
+  - `src/seed/initial-players.ts` est la seule conversion du JSON initial : le schéma étend celui de `POST /players`, donc les bornes sont les mêmes. Une valeur invalide fait échouer le seed avant toute écriture.
+  - Photos normalisées à 600×900 au maximum, sans recadrage, en WebP ; le fichier committé s'appelle `assets/images/players/{id}.webp` et le hash de la clé S3 est calculé depuis son contenu.
+  - Le seed insère seulement ce qui manque : chaque joueur et son nom sont écrits dans une transaction avec `attribute_not_exists(PK)`. Si l'id ou le nom existe déjà, le joueur est ignoré ; une autre cause d'annulation fait échouer le seed.
+  - LocalStack est figé volontairement en `4.9.2`, sans jeton ni compte. Depuis le 23 mars 2026, LocalStack est publié en une seule image, et un jeton d'authentification lié à un compte est exigé à partir de la version 2026.03.0 ([annonce de l'image unique](https://blog.localstack.cloud/localstack-single-image-next-steps/), [notes de version](https://blog.localstack.cloud/localstack-for-aws-release-2026-03-0/)). Les anciens tags figés peuvent continuer à fonctionner sans jeton ([documentation Testcontainers](https://node.testcontainers.org/modules/localstack/)), sans que LocalStack s'y engage ; la `4.9.2` a démarré sans jeton le 8 novembre 2026 sur ce projet.
+  - Le seed ne crée la table et le bucket que si `DYNAMODB_ENDPOINT` est défini (local) ; sur AWS, ils appartiennent à Terraform.
+- **Pourquoi** : le relecteur obtient une API avec données et images en une commande, sans installer Node. Sur un environnement partagé, relancer le seed ne doit rien écraser : une réécriture remettrait la photo initiale d'un joueur dont la photo a été remplacée, et réattribuerait le nom d'un joueur créé par l'API, ce qui créerait un doublon. La conversion réutilise le schéma HTTP car `headtohead.json` a le même format que le contrat (D36). Dériver le hash du contenu évite un manifeste qui pourrait se désynchroniser. `local.env` ne contient aucun secret : les émulateurs ne vérifient pas les identifiants.
+- **Alternatives écartées** : réécrire les joueurs initiaux à chaque seed (écrase les modifications faites depuis) ; laisser l'API hors de Compose (Node obligatoire pour le relecteur) ; chargement au démarrage de l'API (un serveur ne doit pas écrire ses données initiales à chaque lancement) ; monter le dépôt dans le conteneur du seed (problèmes de droits SELinux, `node_modules` propre à la machine hôte) ; recadrer les photos (risque de couper un visage) ; LocalStack en version récente (le relecteur devrait créer un compte et fournir un jeton).
+- **Limites connues** : les conteneurs `seed` et `api` sont des images construites : après une modification du code ou des données, lancer `docker compose up --build`. Modifier `headtohead.json` ne met pas à jour un joueur déjà présent ; en local, `docker compose down` repart d'une base vide. L'API de Compose et `npm run dev` utilisent le même port. Une version figée de LocalStack ne reçoit plus de correctifs, ce qui est acceptable pour un émulateur utilisé uniquement en local ; si le tag cessait de fonctionner sans jeton, il faudrait fournir un jeton ou remplacer cet émulateur.
 
 ---
 

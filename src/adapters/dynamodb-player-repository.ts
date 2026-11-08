@@ -8,12 +8,16 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
 import { PlayerAlreadyExistsError } from '../domain/errors';
-import { playerNameKey, type NewPlayer, type Player } from '../domain/player';
+import type { NewPlayer, Player } from '../domain/player';
 import type { PlayerRepository } from '../ports/player-repository';
-import { ENTITY_TYPE_INDEX } from './dynamodb-table';
-
-const PLAYER_ENTITY_TYPE = 'PLAYER';
-const COUNTER_KEY = 'COUNTER#player';
+import {
+  COUNTER_KEY,
+  ENTITY_TYPE_INDEX,
+  nameItem,
+  PLAYER_ENTITY_TYPE,
+  playerItem,
+  playerKey,
+} from './dynamodb-table';
 
 // Position of the name item in the creation transaction.
 const NAME_ITEM_POSITION = 1;
@@ -40,8 +44,6 @@ const playerItemSchema = z.object({
 });
 
 const counterItemSchema = z.object({ lastId: z.number() });
-
-const playerKey = (id: number) => `PLAYER#${String(id)}`;
 
 export class DynamoDbPlayerRepository implements PlayerRepository {
   constructor(
@@ -90,14 +92,14 @@ export class DynamoDbPlayerRepository implements PlayerRepository {
               {
                 Put: {
                   TableName: this.tableName,
-                  Item: { PK: playerKey(player.id), entityType: PLAYER_ENTITY_TYPE, ...player },
+                  Item: playerItem(player),
                   ConditionExpression: 'attribute_not_exists(PK)',
                 },
               },
               {
                 Put: {
                   TableName: this.tableName,
-                  Item: { PK: `NAME#${playerNameKey(firstname, lastname)}`, playerId: player.id },
+                  Item: nameItem(player),
                   ConditionExpression: 'attribute_not_exists(PK)',
                 },
               },
