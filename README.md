@@ -12,17 +12,23 @@ Node 22, TypeScript strict, [Hono](https://hono.dev) dans une Lambda AWS derriè
 
 ## Démarrage
 
-Prérequis : Node 22 (`nvm use` lit le fichier `.nvmrc`). Aucun compte AWS n'est nécessaire.
+Aucun compte AWS n'est nécessaire.
 
-Avec les émulateurs (Docker ou Podman) :
+Avec Docker ou Podman, sans installer Node :
+
+```bash
+docker compose up   # ou : podman compose up
+```
+
+L'API répond sur http://localhost:3000 et sa documentation sur http://localhost:3000/docs. La commande lance DynamoDB Local et LocalStack (S3), charge les joueurs et les images, puis démarre l'API. Après une modification du code ou des données, ajouter `--build`.
+
+Pour développer (Node 22, `nvm use` lit le fichier `.nvmrc`), l'API tourne sur la machine et se recharge à chaque modification :
 
 ```bash
 npm install
-docker compose up -d   # ou : podman compose up -d
-npm run dev            # API sur http://localhost:3000, documentation sur /docs
+docker compose up -d seed   # tout sauf l'API
+npm run dev
 ```
-
-`docker compose up` lance DynamoDB Local et LocalStack (S3), puis charge les joueurs et les images. Après une modification des données ou du seed, ajouter `--build`, ou lancer `npm run seed`.
 
 Sans aucun conteneur, avec les joueurs initiaux en mémoire (les URLs d'images ne répondent pas dans ce mode) :
 
@@ -44,7 +50,7 @@ npm run dev:memory
 | `npm run format`             | formate le code avec Prettier                                  |
 | `npm run generate:countries` | régénère le référentiel des pays du domaine                    |
 | `npm run prepare:images`     | prépare une fois les photos et drapeaux committés              |
-| `npm run seed`               | (re)charge les données et images, idempotent                   |
+| `npm run seed`               | ajoute les données manquantes et les images, idempotent        |
 | `npm run typecheck`          | vérification des types (`tsc --noEmit`)                        |
 
 ## Architecture

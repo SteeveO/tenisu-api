@@ -17,14 +17,14 @@ Chaque choix doit pouvoir être justifié à l'oral : privilégie le simple et l
 ## Commandes
 
 ```bash
-npm run dev               # API locale sur DynamoDB Local (http://localhost:3000, docker compose up requis)
+npm run dev               # API locale sur DynamoDB Local (http://localhost:3000, docker compose up -d seed requis)
 npm run dev:memory        # API locale en mémoire, sans conteneur
 npm test                  # tests unitaires (in-memory, aucun réseau)
 npm run test:integration  # tests sur DynamoDB Local (docker compose up requis)
 npm run lint              # ESLint
 npm run typecheck         # tsc --noEmit
-docker compose up         # DynamoDB Local + LocalStack + seed (ou podman compose up)
-npm run seed              # (re)charge les données et images initiales, idempotent
+docker compose up         # DynamoDB Local + LocalStack + seed + API (ou podman compose up)
+npm run seed              # ajoute les données manquantes et les images initiales, idempotent
 ```
 
 Avant de considérer une tâche terminée : `npm run lint && npm run typecheck && npm test` doivent passer.
@@ -67,7 +67,7 @@ Règles :
 - `PK = PLAYER#{id}` joueur ; `PK = NAME#{prénom}#{nom}` (normalisé) unicité ; `PK = COUNTER#player` compteur.
 - La liste des joueurs passe par le GSI `entityType` (Query, jamais de Scan) ; le tri final se fait en mémoire.
 - Création = `TransactWriteItems` (joueur + élément de nom avec condition d'absence).
-- Le seed est idempotent : il ne fait jamais redescendre le compteur.
+- Le seed est idempotent : il insère ce qui manque, n'écrase aucun joueur et ne fait jamais redescendre le compteur.
 
 ## Pièges connus des données
 

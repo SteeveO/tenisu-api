@@ -146,6 +146,7 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D22. Seed idempotent
 
+- **Statut** : précisée par D37 (le seed insère ce qui manque et n'écrase plus les joueurs existants).
 - **Décision** : relancer le seed réécrit les joueurs initiaux, mais ne fait monter le compteur qu'au besoin : mise à jour conditionnelle (le compteur n'est fixé au plus grand id initial que s'il est absent ou inférieur).
 - **Pourquoi** : relancer le seed ne doit jamais provoquer de collision avec des joueurs créés depuis.
 
@@ -240,14 +241,16 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 ## D37. Environnement local et chargement des données initiales
 
 - **Décision** :
-  - `docker compose up` lance DynamoDB Local, LocalStack (S3) et un conteneur `seed` qui s'arrête une fois les données chargées. Les fichiers restent compatibles avec Docker et Podman (images écrites en entier, sans dépendance à `service_healthy`).
+  - `docker compose up` lance DynamoDB Local, LocalStack (S3), un conteneur `seed` qui s'arrête une fois les données chargées, et l'API sur le port 3000 : seul Docker ou Podman est nécessaire. Le seed attend lui-même les émulateurs, et les noms d'images sont écrits en entier, pour fonctionner avec les deux outils.
+  - Pour développer : `docker compose up -d seed` lance tout sauf l'API, qui tourne alors sur la machine avec `npm run dev`.
   - `npm run dev` lit `local.env` et utilise DynamoDB Local ; `npm run dev:memory` (`STORAGE=memory`) démarre sans aucun conteneur, avec les joueurs initiaux en mémoire.
   - `src/seed/initial-players.ts` est la seule conversion du JSON initial : le schéma étend celui de `POST /players`, donc les bornes sont les mêmes. Une valeur invalide fait échouer le seed avant toute écriture.
   - Photos normalisées à 600×900 au maximum, sans recadrage, en WebP ; le fichier committé s'appelle `assets/images/players/{id}.webp` et le hash de la clé S3 est calculé depuis son contenu.
+  - Le seed insère seulement ce qui manque : chaque joueur et son nom sont écrits dans une transaction avec `attribute_not_exists(PK)`. Si l'id ou le nom existe déjà, le joueur est ignoré ; une autre cause d'annulation fait échouer le seed.
   - Le seed ne crée la table et le bucket que si `DYNAMODB_ENDPOINT` est défini (local) ; sur AWS, ils appartiennent à Terraform.
-- **Pourquoi** : le relecteur obtient une API avec données et images en une commande, et le seed tourne sans Node installé. La conversion réutilise le schéma HTTP car `headtohead.json` a le même format que le contrat (D36). Dériver le hash du contenu évite un manifeste qui pourrait se désynchroniser. `local.env` ne contient aucun secret : les émulateurs ne vérifient pas les identifiants.
-- **Alternatives écartées** : chargement au démarrage de l'API (un serveur ne doit pas écrire ses données initiales à chaque lancement) ; monter le dépôt dans le conteneur du seed (problèmes de droits SELinux, `node_modules` propre à la machine hôte) ; recadrer les photos (risque de couper un visage) ; LocalStack en version récente (compte obligatoire).
-- **Limite connue** : le conteneur `seed` est une image construite : après une modification des données ou du script, lancer `docker compose up --build`, ou `npm run seed`.
+- **Pourquoi** : le relecteur obtient une API avec données et images en une commande, sans installer Node. Sur un environnement partagé, relancer le seed ne doit rien écraser : une réécriture remettrait la photo initiale d'un joueur dont la photo a été remplacée, et réattribuerait le nom d'un joueur créé par l'API, ce qui créerait un doublon. La conversion réutilise le schéma HTTP car `headtohead.json` a le même format que le contrat (D36). Dériver le hash du contenu évite un manifeste qui pourrait se désynchroniser. `local.env` ne contient aucun secret : les émulateurs ne vérifient pas les identifiants.
+- **Alternatives écartées** : réécrire les joueurs initiaux à chaque seed (écrase les modifications faites depuis) ; laisser l'API hors de Compose (Node obligatoire pour le relecteur) ; chargement au démarrage de l'API (un serveur ne doit pas écrire ses données initiales à chaque lancement) ; monter le dépôt dans le conteneur du seed (problèmes de droits SELinux, `node_modules` propre à la machine hôte) ; recadrer les photos (risque de couper un visage) ; LocalStack en version récente (compte obligatoire).
+- **Limites connues** : les conteneurs `seed` et `api` sont des images construites : après une modification du code ou des données, lancer `docker compose up --build`. Modifier `headtohead.json` ne met pas à jour un joueur déjà présent ; en local, `docker compose down` repart d'une base vide. L'API de Compose et `npm run dev` utilisent le même port.
 
 ---
 

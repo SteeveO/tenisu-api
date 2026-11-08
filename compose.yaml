@@ -1,3 +1,10 @@
+x-app: &app
+  build: .
+  env_file: local.env
+  environment:
+    DYNAMODB_ENDPOINT: http://dynamodb:8000
+    S3_ENDPOINT: http://localstack:4566
+
 services:
   dynamodb:
     image: docker.io/amazon/dynamodb-local:3.3.2
@@ -16,13 +23,19 @@ services:
 
   # Runs once, then exits: creates the table and the bucket and loads the data.
   seed:
-    build:
-      context: .
-      dockerfile: seed.Dockerfile
-    env_file: local.env
-    environment:
-      DYNAMODB_ENDPOINT: http://dynamodb:8000
-      S3_ENDPOINT: http://localstack:4566
+    <<: *app
+    command: npx tsx scripts/seed.ts
     depends_on:
       - dynamodb
       - localstack
+
+  api:
+    <<: *app
+    command: npx tsx src/server.ts
+    # Node as PID 1 ignores SIGTERM: without an init, stopping takes 10 seconds.
+    init: true
+    ports:
+      - 3000:3000
+    depends_on:
+      seed:
+        condition: service_completed_successfully
