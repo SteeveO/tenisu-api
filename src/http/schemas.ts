@@ -151,6 +151,8 @@ export const StatisticsSchema = z
   })
   .openapi('Statistics');
 
+export const HealthSchema = z.object({ status: z.literal('ok') }).openapi('Health');
+
 export const ProblemSchema = z
   .object({
     type: z.string().openapi({ example: 'about:blank' }),

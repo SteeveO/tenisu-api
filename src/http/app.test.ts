@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { InMemoryPlayerRepository } from '../adapters/in-memory-player-repository';
 import { PlayerUseCases } from '../application/player-use-cases';
 import type { Player } from '../domain/player';
 import { aPlayer } from '../domain/player.fixtures';
+import type { Logger } from '../ports/logger';
 import type { PlayerRepository } from '../ports/player-repository';
 import { createApp } from './app';
 
@@ -23,8 +24,10 @@ const bodyWithData = (data: Record<string, unknown>) => ({
   data: { ...validBody.data, ...data },
 });
 
-function appWith(repository: PlayerRepository) {
-  return createApp({ useCases: new PlayerUseCases(repository), cdnBaseUrl: CDN });
+const aLogger = () => ({ info: vi.fn<Logger['info']>(), error: vi.fn<Logger['error']>() });
+
+function appWith(repository: PlayerRepository, logger: Logger = aLogger()) {
+  return createApp({ useCases: new PlayerUseCases(repository), cdnBaseUrl: CDN, logger });
 }
 
 const appWithPlayers = (...players: Player[]) => appWith(new InMemoryPlayerRepository(players));
@@ -418,25 +421,98 @@ describe('GET /countries', () => {
 });
 
 describe('unexpected errors', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+  const secret = 'dynamodb table players-prod is on fire';
+  const failingRepository: PlayerRepository = {
+    findAll: () => Promise.reject(new Error(secret)),
+    findById: () => Promise.reject(new Error(secret)),
+    create: () => Promise.reject(new Error(secret)),
+  };
 
   it('responds 500 without leaking internal details', async () => {
-    const logError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const secret = 'dynamodb table players-prod is on fire';
-    const app = appWith({
-      findAll: () => Promise.reject(new Error(secret)),
-      findById: () => Promise.reject(new Error(secret)),
-      create: () => Promise.reject(new Error(secret)),
-    });
-
-    const response = await app.request('/players');
+    const response = await appWith(failingRepository).request('/players');
 
     expect(response.status).toBe(500);
     expect(response.headers.get('Content-Type')).toBe('application/problem+json');
     expect(await response.text()).not.toContain(secret);
-    expect(logError).toHaveBeenCalledOnce();
+  });
+
+  it('logs the error with its details', async () => {
+    const logger = aLogger();
+
+    await appWith(failingRepository, logger).request('/players');
+
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith('Unexpected error', new Error(secret));
+  });
+});
+
+describe('request logs', () => {
+  const requestLog = (method: string, path: string, status: number) => ({
+    message: 'Request handled',
+    request: { method, path, status },
+    hasDuration: true,
+  });
+
+  const loggedRequests = (logger: ReturnType<typeof aLogger>) =>
+    logger.info.mock.calls.map(([message, { durationMs, ...request }]) => ({
+      message,
+      request,
+      hasDuration: typeof durationMs === 'number',
+    }));
+
+  it('logs a successful request', async () => {
+    const logger = aLogger();
+
+    await appWith(new InMemoryPlayerRepository(), logger).request('/players?limit=2');
+
+    expect(loggedRequests(logger)).toEqual([requestLog('GET', '/players', 200)]);
+  });
+
+  it('logs the final status of a failed request', async () => {
+    const logger = aLogger();
+
+    await appWith(new InMemoryPlayerRepository(), logger).request('/players/abc');
+
+    expect(loggedRequests(logger)).toEqual([requestLog('GET', '/players/abc', 400)]);
+  });
+
+  it('logs a preflight request', async () => {
+    const logger = aLogger();
+
+    await appWith(new InMemoryPlayerRepository(), logger).request('/players', {
+      method: 'OPTIONS',
+      headers: { Origin: 'https://front.example.com', 'Access-Control-Request-Method': 'POST' },
+    });
+
+    expect(loggedRequests(logger)).toEqual([requestLog('OPTIONS', '/players', 204)]);
+  });
+
+  it('does not log expected errors as errors', async () => {
+    const logger = aLogger();
+
+    await appWith(new InMemoryPlayerRepository(), logger).request('/players/999');
+
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /health', () => {
+  it('responds that the API is running', async () => {
+    const response = await appWithPlayers().request('/health');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: 'ok' });
+  });
+
+  it('does not touch the database', async () => {
+    const repository: PlayerRepository = {
+      findAll: () => Promise.reject(new Error('unavailable')),
+      findById: () => Promise.reject(new Error('unavailable')),
+      create: () => Promise.reject(new Error('unavailable')),
+    };
+
+    const response = await appWith(repository).request('/health');
+
+    expect(response.status).toBe(200);
   });
 });
 

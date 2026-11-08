@@ -2,6 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import {
   CountryListSchema,
   CreatePlayerBodySchema,
+  HealthSchema,
   PlayerIdParamsSchema,
   PlayerListQuerySchema,
   PlayerListSchema,
@@ -93,5 +94,14 @@ export const listCountriesRoute = createRoute({
       }),
     },
     500: internalError,
+  },
+});
+
+export const healthRoute = createRoute({
+  method: 'get',
+  path: '/health',
+  summary: 'Check that the API is running',
+  responses: {
+    200: json(HealthSchema, 'The API is running'),
   },
 });

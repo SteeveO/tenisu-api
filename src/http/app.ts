@@ -3,14 +3,16 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
 import { listCountries } from '../application/country-use-cases';
 import type { PlayerUseCases } from '../application/player-use-cases';
+import type { Logger } from '../ports/logger';
 import { presentCountry } from './country-presenter';
 import { encodeCursor } from './player-cursor';
 import { presentPlayer, toNewPlayer } from './player-presenter';
-import { handleError, handleNotFound, RequestValidationError } from './problem';
+import { createErrorHandler, handleNotFound, RequestValidationError } from './problem';
 import {
   createPlayerRoute,
   getPlayerRoute,
   getStatisticsRoute,
+  healthRoute,
   listCountriesRoute,
   listPlayersRoute,
 } from './routes';
@@ -19,13 +21,14 @@ export interface AppDependencies {
   readonly useCases: PlayerUseCases;
   /** Base of public image URLs, without trailing slash. */
   readonly cdnBaseUrl: string;
+  readonly logger: Logger;
 }
 
 /**
  * Builds the HTTP application. Shared by the Lambda entry point (handler.ts)
  * and the local server (server.ts), so both expose exactly the same routes.
  */
-export function createApp({ useCases, cdnBaseUrl }: AppDependencies): OpenAPIHono {
+export function createApp({ useCases, cdnBaseUrl, logger }: AppDependencies): OpenAPIHono {
   const app = new OpenAPIHono({
     defaultHook: (result) => {
       if (!result.success) {
@@ -39,10 +42,22 @@ export function createApp({ useCases, cdnBaseUrl }: AppDependencies): OpenAPIHon
     },
   });
 
+  // First middleware: it also times preflight requests and failed requests.
+  app.use('*', async (c, next) => {
+    const start = performance.now();
+    await next();
+    logger.info('Request handled', {
+      method: c.req.method,
+      path: c.req.path,
+      status: c.res.status,
+      durationMs: Math.round(performance.now() - start),
+    });
+  });
+
   // Any origin: the API is public and uses no cookies (D40).
   app.use('*', cors({ allowMethods: ['GET', 'POST'], exposeHeaders: ['Location'] }));
 
-  app.onError(handleError);
+  app.onError(createErrorHandler(logger));
   app.notFound(handleNotFound);
 
   app.openapi(listPlayersRoute, async (c) => {
@@ -90,6 +105,8 @@ export function createApp({ useCases, cdnBaseUrl }: AppDependencies): OpenAPIHon
       200,
     );
   });
+
+  app.openapi(healthRoute, (c) => c.json({ status: 'ok' as const }, 200));
 
   app.doc31('/openapi.json', {
     openapi: '3.1.0',
