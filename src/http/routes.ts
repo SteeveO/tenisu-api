@@ -3,6 +3,7 @@ import {
   CountryListSchema,
   CreatePlayerBodySchema,
   PlayerIdParamsSchema,
+  PlayerListQuerySchema,
   PlayerListSchema,
   PlayerSchema,
   ProblemSchema,
@@ -25,8 +26,10 @@ export const listPlayersRoute = createRoute({
   method: 'get',
   path: '/players',
   summary: 'List players from best to worst',
+  request: { query: PlayerListQuerySchema },
   responses: {
-    200: json(PlayerListSchema, 'Players sorted by rank, then points'),
+    200: json(PlayerListSchema, 'A page of players sorted by rank, then points'),
+    400: problem('Invalid filter, limit or cursor, or unknown country'),
     500: internalError,
   },
 });

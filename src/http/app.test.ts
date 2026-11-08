@@ -48,7 +48,7 @@ describe('GET /players', () => {
     const response = await appWithPlayers().request('/players');
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ players: [] });
+    expect(await response.json()).toEqual({ players: [], nextCursor: null });
   });
 
   it('returns players from best to worst', async () => {
@@ -60,6 +60,79 @@ describe('GET /players', () => {
     const body = await (await app.request('/players')).json();
 
     expect(body).toMatchObject({ players: [{ lastname: 'First' }, { lastname: 'Second' }] });
+  });
+});
+
+describe('GET /players filters and pagination', () => {
+  const players = [
+    aPlayer({ id: 1, firstname: 'A', rank: 1, sex: 'M', countryCode: 'SRB' }),
+    aPlayer({ id: 2, firstname: 'B', rank: 2, sex: 'F', countryCode: 'USA' }),
+    aPlayer({ id: 3, firstname: 'C', rank: 3, sex: 'M', countryCode: 'USA' }),
+  ];
+  const pageSchema = z.object({
+    players: z.array(z.object({ id: z.number() }).loose()),
+    nextCursor: z.string().nullable(),
+  });
+
+  async function getPage(app: ReturnType<typeof createApp>, query: string) {
+    const response = await app.request(`/players?${query}`);
+    expect(response.status).toBe(200);
+    const page = pageSchema.parse(await response.json());
+    return { ids: page.players.map((player) => player.id), nextCursor: page.nextCursor };
+  }
+
+  it('combines filters', async () => {
+    const page = await getPage(appWithPlayers(...players), 'sex=M&country=USA');
+
+    expect(page).toEqual({ ids: [3], nextCursor: null });
+  });
+
+  it('accepts a lowercase country code', async () => {
+    const page = await getPage(appWithPlayers(...players), 'country=srb');
+
+    expect(page.ids).toEqual([1]);
+  });
+
+  it('walks through the pages', async () => {
+    const app = appWithPlayers(...players);
+
+    const firstPage = await getPage(app, 'limit=2');
+    const secondPage = await getPage(app, `limit=2&cursor=${String(firstPage.nextCursor)}`);
+
+    expect(firstPage.ids).toEqual([1, 2]);
+    expect(secondPage).toEqual({ ids: [3], nextCursor: null });
+  });
+
+  it('keeps the filters applied across pages', async () => {
+    const app = appWithPlayers(...players);
+
+    const firstPage = await getPage(app, 'sex=M&limit=1');
+    const secondPage = await getPage(app, `sex=M&limit=1&cursor=${String(firstPage.nextCursor)}`);
+
+    expect(secondPage).toEqual({ ids: [3], nextCursor: null });
+  });
+
+  it.each([
+    ['an unknown sex', 'sex=X'],
+    ['an unknown country', 'country=XXX'],
+    ['a limit of 0', 'limit=0'],
+    ['a limit above the maximum', 'limit=101'],
+    ['a non-numeric limit', 'limit=abc'],
+    ['a limit in scientific notation', 'limit=1e1'],
+    ['an invalid cursor', 'cursor=@@@'],
+  ])('responds 400 for %s', async (_label, query) => {
+    const response = await appWithPlayers(...players).request(`/players?${query}`);
+
+    await expectProblem(response, 400, '/players');
+  });
+
+  it('documents the query parameters', async () => {
+    const response = await appWithPlayers().request('/openapi.json');
+    const text = await response.text();
+
+    for (const name of ['sex', 'country', 'limit', 'cursor']) {
+      expect(text).toContain(`"name":"${name}"`);
+    }
   });
 });
 
@@ -173,7 +246,7 @@ describe('POST /players', () => {
     const response = await postPlayer(app, bodyWithData({ height: 0 }));
 
     await expectProblem(response, 400, '/players');
-    expect(await (await app.request('/players')).json()).toEqual({ players: [] });
+    expect(await (await app.request('/players')).json()).toEqual({ players: [], nextCursor: null });
   });
 
   it.each([

@@ -1,14 +1,19 @@
 import { getCountry } from '../domain/country';
 import { PlayerNotFoundError } from '../domain/errors';
-import { sortPlayersFromBestToWorst, type NewPlayer, type Player } from '../domain/player';
+import type { NewPlayer, Player } from '../domain/player';
+import { selectPlayerPage, type PlayerPage, type PlayerPageRequest } from '../domain/player-page';
 import { computeStatistics, type PlayerStatistics } from '../domain/statistics';
 import type { PlayerRepository } from '../ports/player-repository';
 
 export class PlayerUseCases {
   constructor(private readonly players: PlayerRepository) {}
 
-  async listPlayers(): Promise<Player[]> {
-    return sortPlayersFromBestToWorst(await this.players.findAll());
+  /** @throws UnknownCountryError */
+  async listPlayers(request: PlayerPageRequest): Promise<PlayerPage> {
+    if (request.countryCode !== undefined) {
+      getCountry(request.countryCode);
+    }
+    return selectPlayerPage(await this.players.findAll(), request);
   }
 
   /** @throws PlayerNotFoundError */

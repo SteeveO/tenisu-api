@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 import { listCountries } from '../application/country-use-cases';
 import type { PlayerUseCases } from '../application/player-use-cases';
 import { presentCountry } from './country-presenter';
+import { encodeCursor } from './player-cursor';
 import { presentPlayer, toNewPlayer } from './player-presenter';
 import { handleError, handleNotFound, RequestValidationError } from './problem';
 import {
@@ -45,8 +46,15 @@ export function createApp({ useCases, cdnBaseUrl }: AppDependencies): OpenAPIHon
   app.notFound(handleNotFound);
 
   app.openapi(listPlayersRoute, async (c) => {
-    const players = await useCases.listPlayers();
-    return c.json({ players: players.map((player) => presentPlayer(player, cdnBaseUrl)) }, 200);
+    const { sex, country, limit, cursor } = c.req.valid('query');
+    const page = await useCases.listPlayers({ sex, countryCode: country, limit, after: cursor });
+    return c.json(
+      {
+        players: page.players.map((player) => presentPlayer(player, cdnBaseUrl)),
+        nextCursor: page.next === null ? null : encodeCursor(page.next),
+      },
+      200,
+    );
   });
 
   app.openapi(getPlayerRoute, async (c) => {

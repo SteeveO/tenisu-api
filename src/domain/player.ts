@@ -42,11 +42,18 @@ function normalizeName(name: string): string {
     .trim();
 }
 
+/** What locates a player in the sort order. */
+export type PlayerPosition = Pick<Player, 'rank' | 'points' | 'id'>;
+
 /**
- * Sorts players from best to worst: rank first, since points are not comparable
+ * Orders players from best to worst: rank first, since points are not comparable
  * across the men's and women's tours, then highest points on equal rank.
  * The id breaks remaining ties so that the order never depends on storage order.
  */
+export function compareFromBestToWorst(a: PlayerPosition, b: PlayerPosition): number {
+  return a.rank - b.rank || b.points - a.points || a.id - b.id;
+}
+
 export function sortPlayersFromBestToWorst(players: readonly Player[]): Player[] {
-  return players.toSorted((a, b) => a.rank - b.rank || b.points - a.points || a.id - b.id);
+  return players.toSorted(compareFromBestToWorst);
 }
