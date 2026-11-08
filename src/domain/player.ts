@@ -11,7 +11,7 @@ export interface Player {
   readonly sex: Sex;
   /** IOC code (e.g. SUI). */
   readonly countryCode: string;
-  /** Storage key of the picture, null until one is uploaded. Never a full URL. */
+  /** Storage key of the picture, null when the player has none. Never a full URL. */
   readonly pictureKey: string | null;
   readonly rank: number;
   readonly points: number;

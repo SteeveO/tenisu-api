@@ -158,6 +158,7 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D24. Upload de photo : POST présigné et traitement asynchrone
 
+- **Statut** : non implémentée (TEN-14 annulé), voir « Hors périmètre ».
 - **Décision** : `POST /players/{id}/picture` renvoie `200` avec un formulaire POST présigné (`content-length-range`, type d'image imposé, expiration courte) vers `uploads/{id}/…`. Un événement S3 déclenche une Lambda qui valide l'image, la convertit en WebP, l'écrit sous sa clé hashée, puis met à jour la clé photo du joueur. Les fichiers bruts de `uploads/` expirent au bout d'un jour (règle de cycle de vie).
 - **Pourquoi** : un PUT présigné ne permet pas de limiter la taille. Le traitement asynchrone garantit que le joueur ne pointe jamais vers une image invalide ou non normalisée. `200` car aucune ressource n'est créée à cette URI.
 - **Alternatives écartées** : PUT présigné (pas de limite de taille) ; mise à jour de la clé dès la génération de l'URL (le joueur pointerait vers un fichier peut-être jamais envoyé ou invalide).
@@ -193,18 +194,21 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D30. Lambdas en arm64, `sharp` empaqueté pour Linux
 
+- **Statut** : appliquée pour arm64 ; `sharp` n'est pas empaqueté, car il ne servait qu'au traitement des photos, non implémentée (TEN-14 annulé), voir « Hors périmètre ». Il reste une dépendance de développement de `scripts/prepare-images.ts`.
 - **Décision** : toutes les Lambdas tournent sur arm64 (Graviton). Le bundle esbuild garde `sharp` en dépendance externe, installé pour la cible `linux-arm64` au moment du packaging.
 - **Pourquoi** : arm64 coûte environ 20 % de moins à performance égale. `sharp` repose sur un binaire natif : celui installé sur le poste de développement ne fonctionne pas dans la Lambda.
 - **Alternatives écartées** : x86_64 (plus cher, sans bénéfice ici) ; couche Lambda `sharp` tierce (dépendance externe non maîtrisée).
 
 ## D31. Stratégie de test du traitement des photos
 
+- **Statut** : non implémentée (TEN-14 annulé), voir « Hors périmètre ».
 - **Décision** : la fonction de traitement (validation, conversion, hash, mise à jour du joueur) est testée unitairement ; le POST présigné et l'upload sont testés en local sur LocalStack ; le déclenchement par l'événement S3 est vérifié sur AWS.
 - **Pourquoi** : émuler l'invocation d'une Lambda par un événement S3 dans LocalStack demande Docker dans Docker, pour un gain faible ; la logique est couverte par les tests unitaires, et le câblage par la vérification sur l'environnement déployé.
 - **Alternatives écartées** : test de bout en bout complet sur LocalStack (lourd et fragile).
 
 ## D32. Limite de débit relevée et concurrence réservée modeste (remplace D28)
 
+- **Statut** : appliquée, sauf la concurrence réservée de 2 pour la Lambda de traitement des photos, qui n'existe pas (TEN-14 annulé).
 - **Décision** :
   - limite de débit sur le stage API Gateway : 50 requêtes/s, pics à 100 ;
   - concurrence réservée : 10 pour la Lambda de l'API, 2 pour la Lambda de traitement des photos ;
@@ -314,6 +318,8 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## Hors périmètre (et ce que je ferais ensuite)
 
+- **Upload de photo** : non réalisé (TEN-14 annulé), car hors du cœur demandé et coûteux en surface (seconde Lambda, `sharp` pour arm64, événement S3). Les joueurs créés par l'API gardent `picture: null`. Le flux prévu est décrit dans D24, D30 et D31.
 - **Authentification des routes d'écriture** : non demandée ; je proposerais un authorizer JWT sur API Gateway (Cognito ou fournisseur d'identité du client).
 - **Limite de débit par adresse IP** : AWS WAF devant CloudFront (voir D32).
 - **Index trié pour la pagination** : si le volume dépassait quelques milliers de joueurs (voir D27).
+- **Domaine personnalisé** : un certificat ACM (en `us-east-1`) permettrait d'imposer TLS 1.2 au minimum sur CloudFront, ce que le certificat par défaut ne permet pas.

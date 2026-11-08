@@ -107,7 +107,10 @@ export const PlayerSchema = z
       picture: z.string().openapi({ description: 'Flag URL' }),
       code: z.string().openapi({ description: 'IOC code', example: 'SRB' }),
     }),
-    picture: z.string().nullable().openapi({ description: 'Null until a picture is uploaded' }),
+    picture: z
+      .string()
+      .nullable()
+      .openapi({ description: 'Photo URL, null when the player has none' }),
     data: z.object({
       rank: z.number().int(),
       points: z.number().int(),
