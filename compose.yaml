@@ -14,7 +14,7 @@ services:
       - 8000:8000
 
   localstack:
-    # Pinned: newer LocalStack images require an account.
+    # Pinned on purpose: newer releases require an auth token (D37).
     image: docker.io/localstack/localstack:4.9.2
     environment:
       SERVICES: s3
