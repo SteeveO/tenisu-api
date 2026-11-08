@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # The branch protection on main requires this job by name: do not rename it.
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      dynamodb-local:
+        image: amazon/dynamodb-local:3.3.2
+        ports:
+          - 8000:8000
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests with coverage
+        run: npm run test:coverage
+
+      - name: Wait for DynamoDB Local
+        run: timeout 30 bash -c 'until curl --silent --output /dev/null http://localhost:8000; do sleep 1; done'
+
+      - name: Integration tests
+        run: npm run test:integration
