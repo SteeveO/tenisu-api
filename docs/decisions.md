@@ -228,6 +228,12 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Pourquoi** : une transaction DynamoDB ne renvoie pas la valeur d'un compteur incrémenté, il faut donc le lire avant. Les id n'ont aucune valeur métier : leur seule exigence est l'unicité. Un GSI ne propose pas de lecture fortement cohérente, et le décalage est sans conséquence ici. Un `TransactionConflict` signifie seulement qu'une autre transaction touchait le même élément : elle peut échouer elle aussi, et répondre « ce joueur existe déjà » serait alors faux. Seule une condition échouée prouve que le nom est enregistré, et le SDK ne relance pas les transactions annulées.
 - **Alternatives écartées** : traduire `TransactionConflict` en `409` (réponse fausse si l'autre transaction échoue) ; vérifier le nom avant de réserver l'id (une lecture de plus à chaque création, pour éviter des trous sans importance) ; Scan fortement cohérent de la table pour la liste (exclu par D20).
 
+## D36. Format des joueurs dans l'API
+
+- **Décision** : un joueur est renvoyé à plat, avec les unités dans les noms (`weightGrams`, `heightCm`, `lastResults`). `country` regroupe `code` (CIO), `name` et `picture` (URL du drapeau), et `picture` est l'URL de la photo ou `null`. `POST /players` reçoit les mêmes champs à plat, avec `countryCode`. Le corps est strict : un champ inconnu est refusé (`400`), ce qui couvre l'`id` (D14). La spécification OpenAPI est servie sur `/openapi.json` et Swagger UI sur `/docs`. Un corps qui n'est pas du JSON reçoit `415`.
+- **Pourquoi** : même logique que D15, un champ se comprend sans documentation. Le corps strict signale immédiatement une faute de frappe dans un nom de champ, au lieu de l'ignorer.
+- **Alternatives écartées** : reprendre tel quel le format de `headtohead.json` (`data.weight` sans unité, ce qui est précisément le piège de ces données) ; ignorer les champs inconnus (un `id` envoyé par le client serait silencieusement perdu).
+
 ---
 
 ## Choix sur les données
