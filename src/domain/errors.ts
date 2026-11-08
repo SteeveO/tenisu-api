@@ -14,3 +14,10 @@ export class PlayerAlreadyExistsError extends Error {
     this.name = 'PlayerAlreadyExistsError';
   }
 }
+
+export class PlayerNotFoundError extends Error {
+  constructor(readonly playerId: number) {
+    super(`Player not found: ${String(playerId)}`);
+    this.name = 'PlayerNotFoundError';
+  }
+}
