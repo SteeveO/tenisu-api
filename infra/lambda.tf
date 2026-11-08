@@ -1,7 +1,7 @@
 # Built by `npm run build`.
 data "archive_file" "api" {
   type        = "zip"
-  source_file = "${path.module}/../dist/api/handler.cjs"
+  source_dir  = "${path.module}/../dist/api"
   output_path = "${path.module}/../dist/api.zip"
 }
 
@@ -26,6 +26,8 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
+      # Readable stack traces in CloudWatch from the minified bundle.
+      NODE_OPTIONS  = "--enable-source-maps"
       PLAYERS_TABLE = aws_dynamodb_table.players.name
       # Placeholder until CloudFront exists (TEN-12).
       CDN_BASE_URL = "https://cdn.invalid"
