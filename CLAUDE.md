@@ -45,6 +45,7 @@ infra/           # Terraform
 ```
 
 Règles :
+
 - Les dépendances pointent vers l'intérieur : `http` → `application` → `domain`. Le domaine n'importe jamais rien d'un autre dossier.
 - Les adaptateurs implémentent un port ; un même jeu de tests de contrat tourne sur l'implémentation in-memory et DynamoDB.
 - Pas de logique métier dans les routes : une route valide, appelle un cas d'usage, formate la réponse.
@@ -84,12 +85,19 @@ Règles :
 
 ## Conventions
 
-- Code, noms et commentaires en anglais ; README et docs en français.
+- Code, noms et commentaires en anglais ; README, docs, tickets, commits et PR en français.
 - La branche `main` est protégée : tout passe par une pull request dont la CI est verte.
 - Branche, commits et PR contiennent l'identifiant Linear : branche `ten-12-images-s3`, PR `TEN-12 Images S3 + CloudFront`. Un ticket par PR.
 - Le job de CI s'appelle `ci` (nom utilisé par la protection de branche).
 - Toute décision d'architecture ou de périmètre est ajoutée à `docs/decisions.md` (quoi, pourquoi, alternatives écartées).
 - Ne jamais committer de secret ni de clé AWS ; l'accès AWS en CI passe par OIDC.
+
+## Infra
+
+- Région : eu-north-1 (Stockholm). CloudFront est global ; un éventuel certificat ACM pour un domaine personnalisé doit être créé en us-east-1.
+- Profil AWS local : `tenisu` (IAM Identity Center, `aws sso login --profile tenisu`, puis `AWS_PROFILE=tenisu`).
+- Lambdas en arm64 ; `sharp` installé pour `linux-arm64` au packaging (D30).
+- Throttling API Gateway : 50 req/s, burst 100 ; reserved concurrency 10 (API) et 2 (traitement des photos) ; budget 5 USD/mois hors Terraform (D32).
 
 ## Hors périmètre (sauf ticket explicite)
 
