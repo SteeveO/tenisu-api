@@ -20,7 +20,9 @@ export const PlayerIdParamsSchema = z.object({
 const MAX_PAGE_SIZE = 100;
 
 export const PlayerListQuerySchema = z.object({
-  sex: sex.optional().openapi({ param: { name: 'sex', in: 'query' }, type: 'string', enum: SEXES }),
+  sex: sex
+    .optional()
+    .openapi({ param: { name: 'sex', in: 'query' }, type: 'string', enum: [...SEXES] }),
   country: z
     .string()
     .toUpperCase()
@@ -64,7 +66,7 @@ export const CreatePlayerBodySchema = z
     firstname: name.openapi({ example: 'Novak' }),
     lastname: name.openapi({ example: 'Djokovic' }),
     shortname: name.openapi({ example: 'N.DJO' }),
-    sex: sex.openapi({ type: 'string', enum: SEXES }),
+    sex: sex.openapi({ type: 'string', enum: [...SEXES] }),
     country: z.strictObject({
       code: z.string().toUpperCase().openapi({ description: 'IOC code', example: 'SRB' }),
     }),
