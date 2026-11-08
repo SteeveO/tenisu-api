@@ -205,6 +205,19 @@ describe('GET /players/{id}', () => {
 });
 
 describe('POST /players', () => {
+  it('accepts a lowercase sex and stores it in uppercase', async () => {
+    const response = await postPlayer(appWithPlayers(), { ...validBody, sex: 'f' });
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ sex: 'F' });
+  });
+
+  it('still refuses an unknown sex', async () => {
+    const response = await postPlayer(appWithPlayers(), { ...validBody, sex: 'x' });
+
+    await expectProblem(response, 400, '/players');
+  });
+
   it('responds 201 with a Location header and the created player', async () => {
     const response = await postPlayer(appWithPlayers(), validBody);
 

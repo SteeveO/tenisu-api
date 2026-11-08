@@ -4,6 +4,9 @@ import { decodeCursor } from './player-cursor';
 const positiveInteger = z.number().int().positive();
 const name = z.string().trim().min(1).max(100);
 const matchResult = z.union([z.literal(0), z.literal(1)]);
+const SEXES = ['M', 'F'] as const;
+// Strict on structure, tolerant on the case of codes (D36).
+const sex = z.string().toUpperCase().pipe(z.enum(SEXES));
 
 export const PlayerIdParamsSchema = z.object({
   // A strict pattern rather than z.coerce, which would accept "1e3" or "0x10".
@@ -17,12 +20,7 @@ export const PlayerIdParamsSchema = z.object({
 const MAX_PAGE_SIZE = 100;
 
 export const PlayerListQuerySchema = z.object({
-  sex: z
-    .string()
-    .toUpperCase()
-    .pipe(z.enum(['M', 'F']))
-    .optional()
-    .openapi({ param: { name: 'sex', in: 'query' }, type: 'string', enum: ['M', 'F'] }),
+  sex: sex.optional().openapi({ param: { name: 'sex', in: 'query' }, type: 'string', enum: SEXES }),
   country: z
     .string()
     .toUpperCase()
@@ -66,7 +64,7 @@ export const CreatePlayerBodySchema = z
     firstname: name.openapi({ example: 'Novak' }),
     lastname: name.openapi({ example: 'Djokovic' }),
     shortname: name.openapi({ example: 'N.DJO' }),
-    sex: z.enum(['M', 'F']),
+    sex: sex.openapi({ type: 'string', enum: SEXES }),
     country: z.strictObject({
       code: z.string().toUpperCase().openapi({ description: 'IOC code', example: 'SRB' }),
     }),
