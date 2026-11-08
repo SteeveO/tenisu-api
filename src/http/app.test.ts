@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import { InMemoryPlayerRepository } from '../adapters/in-memory-player-repository';
 import { PlayerUseCases } from '../application/player-use-cases';
 import type { Player } from '../domain/player';
@@ -293,6 +294,28 @@ describe('GET /stats', () => {
       averageBmi: 20,
       medianHeightCm: 200,
     });
+  });
+});
+
+describe('GET /countries', () => {
+  it('returns each country with its flag URL', async () => {
+    const response = await appWithPlayers().request('/countries');
+
+    expect(response.status).toBe(200);
+    const { countries } = z
+      .object({ countries: z.array(z.object({ code: z.string() }).loose()) })
+      .parse(await response.json());
+    expect(countries.find((country) => country.code === 'SUI')).toEqual({
+      code: 'SUI',
+      name: 'Suisse',
+      picture: `${CDN}/flags/ch.svg`,
+    });
+  });
+
+  it('is documented in the OpenAPI specification', async () => {
+    const response = await appWithPlayers().request('/openapi.json');
+
+    expect(await response.text()).toContain('"/countries"');
   });
 });
 

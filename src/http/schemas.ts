@@ -74,6 +74,18 @@ export const PlayerSchema = z
 
 export const PlayerListSchema = z.object({ players: z.array(PlayerSchema) }).openapi('PlayerList');
 
+export const CountryListSchema = z
+  .object({
+    countries: z.array(
+      z.object({
+        code: z.string().openapi({ description: 'IOC code', example: 'SUI' }),
+        name: z.string().openapi({ description: 'French name', example: 'Suisse' }),
+        picture: z.string().openapi({ description: 'Flag URL' }),
+      }),
+    ),
+  })
+  .openapi('CountryList');
+
 export const StatisticsSchema = z
   .object({
     bestCountries: z.object({

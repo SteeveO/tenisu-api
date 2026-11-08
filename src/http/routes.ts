@@ -1,5 +1,6 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import {
+  CountryListSchema,
   CreatePlayerBodySchema,
   PlayerIdParamsSchema,
   PlayerListSchema,
@@ -73,6 +74,16 @@ export const getStatisticsRoute = createRoute({
   summary: 'Get player statistics',
   responses: {
     200: json(StatisticsSchema, 'Best countries, average BMI and median height'),
+    500: internalError,
+  },
+});
+
+export const listCountriesRoute = createRoute({
+  method: 'get',
+  path: '/countries',
+  summary: 'List the countries accepted when creating a player',
+  responses: {
+    200: json(CountryListSchema, 'Countries sorted by French name'),
     500: internalError,
   },
 });
