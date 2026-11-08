@@ -17,9 +17,17 @@ describe('PlayerUseCases', () => {
       ]),
     );
 
-    const players = await useCases.listPlayers();
+    const { players } = await useCases.listPlayers({ limit: 10 });
 
     expect(players.map((player) => player.lastname)).toEqual(['First', 'Second']);
+  });
+
+  it('refuses to filter on an unknown country', async () => {
+    const useCases = new PlayerUseCases(new InMemoryPlayerRepository());
+
+    await expect(useCases.listPlayers({ countryCode: 'XXX', limit: 10 })).rejects.toThrow(
+      UnknownCountryError,
+    );
   });
 
   it('returns a player by id', async () => {
@@ -58,7 +66,10 @@ describe('PlayerUseCases', () => {
       UnknownCountryError,
     );
 
-    await expect(useCases.listPlayers()).resolves.toEqual([]);
+    await expect(useCases.listPlayers({ limit: 10 })).resolves.toEqual({
+      players: [],
+      next: null,
+    });
   });
 
   it('refuses a duplicate player', async () => {

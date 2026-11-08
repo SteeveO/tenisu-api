@@ -81,6 +81,7 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D13. Front minimal et cache, en bonus
 
+- **Statut** : abandonnée pour le front et le cache des `GET /players` et `GET /stats` (TEN-18 annulé) : Swagger UI sur `/docs` permet déjà d'essayer toute l'API depuis un navigateur, et un front n'apporte rien à un test orienté back-end. Le cache des images (D39) et de `GET /countries` (D41) est en place.
 - **Décision** : une page HTML/JS statique, sans framework, servie par CloudFront, réalisée uniquement une fois l'API, le déploiement et la documentation terminés. Cache : images avec cache long et clés versionnées ; réponses `GET` de l'API avec `Cache-Control` court et `ETag`.
 - **Pourquoi** : rendre visibles les images et démontrer le flux complet de création avec upload, sans détourner l'effort d'un test orienté back-end.
 - **Alternatives écartées** : framework front (React, Vue) : hors sujet pour un test back-end.
@@ -174,6 +175,7 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D27. Pagination simple
 
+- **Statut** : précisée par D42.
 - **Décision** : `limit` et un curseur opaque (position encodée), sur la liste triée en mémoire.
 - **Pourquoi** : suffisant et honnête pour ce volume ; documenté comme limite connue (au-delà de quelques milliers de joueurs, on passerait à un index trié).
 
@@ -233,10 +235,10 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D36. L'API conserve le format de `headtohead.json`
 
-- **Décision** : `GET /players` renvoie `{ "players": [...] }`, comme le fichier d'origine, et un joueur est renvoyé dans la structure d'origine : `country` (`picture`, `code`), `picture`, et `data` (`rank`, `points`, `weight`, `height`, `age`, `last`). Les unités (grammes, centimètres) sont documentées dans la spécification OpenAPI. Seules les URLs d'images changent : elles pointent vers notre CDN, et `picture` vaut `null` tant qu'aucune photo n'est envoyée. Le domaine garde des noms explicites (`weightGrams`, `heightCm`, `lastResults`) ; la traduction se fait uniquement dans `http/`. `POST /players` reçoit la même structure, avec `country.code`, sans `id` ni `picture`. Le corps est strict : un champ inconnu est refusé (`400`). Un corps qui n'est pas du JSON reçoit `415`. La spécification est servie sur `/openapi.json`, Swagger UI sur `/docs`.
-- **Bornes de plausibilité** : en plus des bornes de D34, `data.height` est compris entre 100 et 250 cm et `data.weight` entre 30 000 et 200 000 g, car une valeur impossible fausserait l'IMC moyen. `country.code` est accepté en minuscules et converti en majuscules.
+- **Décision** : `GET /players` renvoie `{ "players": [...] }`, comme le fichier d'origine, et un joueur est renvoyé dans la structure d'origine : `country` (`picture`, `code`), `picture`, et `data` (`rank`, `points`, `weight`, `height`, `age`, `last`). Les unités (grammes, centimètres) sont documentées dans la spécification OpenAPI. Seules les URLs d'images changent : elles pointent vers notre CDN, et `picture` vaut `null` tant qu'aucune photo n'est envoyée. Le domaine garde des noms explicites (`weightGrams`, `heightCm`, `lastResults`) ; la traduction se fait uniquement dans `http/`. `POST /players` reçoit la même structure, avec `country.code`, sans `id` ni `picture`. Le corps est strict sur la structure : un champ inconnu est refusé (`400`), y compris dans `country` et `data`. Il est tolérant sur la casse des codes : `sex` et `country.code` sont acceptés en minuscules, comme dans les filtres de `GET /players` ; ils sont stockés et renvoyés en majuscules. Un corps qui n'est pas du JSON reçoit `415`. La spécification est servie sur `/openapi.json`, Swagger UI sur `/docs`.
+- **Bornes de plausibilité** : en plus des bornes de D34, `data.height` est compris entre 100 et 250 cm et `data.weight` entre 30 000 et 200 000 g, car une valeur impossible fausserait l'IMC moyen.
 - **Pourquoi** : un consommateur existant, par exemple un front déjà prêt, doit pouvoir utiliser l'API sans adaptation : on ne casse pas un contrat de données fourni. L'enveloppe `players` permettra aussi d'ajouter un curseur de pagination (D27) à côté de la liste sans rien casser, ce qu'un tableau nu ne permet pas. La clarté des unités est obtenue par la documentation et par les noms du domaine, sans changer le contrat.
-- **Alternatives écartées** : format à plat avec les unités dans les noms (`weightGrams`), plus lisible mais qui casse le contrat d'origine ; ignorer les champs inconnus (un `id` envoyé par le client serait silencieusement perdu).
+- **Alternatives écartées** : format à plat avec les unités dans les noms (`weightGrams`), plus lisible mais qui casse le contrat d'origine ; ignorer les champs inconnus (un `id` envoyé par le client serait silencieusement perdu) ; refuser les minuscules sur les codes (`f` ne peut vouloir dire que `F` : la conversion ne perd aucune information).
 
 ## D37. Environnement local et chargement des données initiales
 
@@ -285,6 +287,13 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Décision** : `GET /countries` renvoie `{ "countries": [{ "code": "SUI", "name": "Suisse", "picture": "https://…/flags/ch.svg" }] }`, trié par nom selon l'ordre alphabétique français. Le cas d'usage est une simple fonction, sans port : le référentiel est une donnée statique du domaine, triée une seule fois au chargement. La réponse porte `Cache-Control: public, max-age=86400`, comme les drapeaux.
 - **Pourquoi** : même enveloppe que `GET /players` (D36), mêmes noms que l'objet `country` d'un joueur (`code`, `picture`), et le `code` renvoyé est directement celui que `POST /players` attend. Un tri par ordre des caractères placerait `Égypte` après `Zimbabwe`. Le référentiel ne change qu'au déploiement : un jour de cache évite des appels inutiles, et un changement reste visible dès le lendemain.
 - **Alternatives écartées** : une classe de cas d'usage injectée (aucune dépendance à injecter) ; exposer aussi le code ISO (détail interne, qui ne sert qu'à trouver le drapeau).
+
+## D42. Filtres et pagination de `GET /players`
+
+- **Décision** : paramètres `sex`, `country` (code CIO), tous deux acceptés en minuscules, `limit` (1 à 100, 100 par défaut) et `cursor`. La réponse ajoute `nextCursor` à côté de `players`, `null` sur la dernière page. Le curseur encode la position dans le tri (`rank`, `points`, `id`), en base64url. Une valeur invalide donne `400`, y compris un pays inconnu du référentiel. La sélection est une fonction pure du domaine, appliquée en mémoire après la lecture des joueurs (D20, D27). Un paramètre inconnu est ignoré.
+- **Pourquoi** : avec une position, une création entre deux pages ne répète ni ne saute aucun joueur, ce que permet un ordre de tri sans égalité possible (`rank`, `points`, puis `id`). Une limite par défaut borne la réponse (une Lambda derrière API Gateway ne renvoie pas plus de 6 Mo) tout en laissant le jeu initial complet sur la première page, sans changer le format attendu. Un pays inconnu est une erreur de requête, comme à la création, plutôt qu'une liste vide qui masquerait une faute de frappe.
+- **Alternatives écartées** : curseur par décalage (une création décale les pages) ; pas de limite par défaut (réponse non bornée) ; refuser les paramètres inconnus (gênant pour un paramètre ajouté par un proxy ou un outil, sans intérêt pour une lecture).
+- **Limite connue** : chaque page relit tous les joueurs (D27). Au-delà de quelques milliers, il faudrait un index trié.
 
 ---
 

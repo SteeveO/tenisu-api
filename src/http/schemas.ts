@@ -1,8 +1,12 @@
 import { z } from '@hono/zod-openapi';
+import { decodeCursor } from './player-cursor';
 
 const positiveInteger = z.number().int().positive();
 const name = z.string().trim().min(1).max(100);
 const matchResult = z.union([z.literal(0), z.literal(1)]);
+const SEXES = ['M', 'F'] as const;
+// Strict on structure, tolerant on the case of codes (D36).
+const sex = z.string().toUpperCase().pipe(z.enum(SEXES));
 
 export const PlayerIdParamsSchema = z.object({
   // A strict pattern rather than z.coerce, which would accept "1e3" or "0x10".
@@ -13,13 +17,56 @@ export const PlayerIdParamsSchema = z.object({
     .openapi({ param: { name: 'id', in: 'path' }, type: 'integer', example: 52 }),
 });
 
+const MAX_PAGE_SIZE = 100;
+
+export const PlayerListQuerySchema = z.object({
+  sex: sex
+    .optional()
+    .openapi({ param: { name: 'sex', in: 'query' }, type: 'string', enum: [...SEXES] }),
+  country: z
+    .string()
+    .toUpperCase()
+    .optional()
+    .openapi({ param: { name: 'country', in: 'query' }, description: 'IOC code', example: 'USA' }),
+  // A strict pattern rather than z.coerce, which would accept "1e1" or an empty value.
+  limit: z
+    .string()
+    .regex(/^[1-9]\d{0,2}$/, 'Must be a positive integer')
+    .transform(Number)
+    .pipe(z.number().max(MAX_PAGE_SIZE))
+    .default(MAX_PAGE_SIZE)
+    .openapi({
+      param: { name: 'limit', in: 'query' },
+      type: 'integer',
+      minimum: 1,
+      maximum: MAX_PAGE_SIZE,
+      default: MAX_PAGE_SIZE,
+    }),
+  cursor: z
+    .string()
+    .transform((value, context) => {
+      const position = decodeCursor(value);
+      if (position === null) {
+        context.addIssue({ code: 'custom', message: 'Invalid cursor' });
+        return z.NEVER;
+      }
+      return position;
+    })
+    .optional()
+    .openapi({
+      param: { name: 'cursor', in: 'query' },
+      type: 'string',
+      description: 'The `nextCursor` of the previous page',
+    }),
+});
+
 // Strict: an unknown key is refused, notably `id`, which only the server assigns (D14).
 export const CreatePlayerBodySchema = z
   .strictObject({
     firstname: name.openapi({ example: 'Novak' }),
     lastname: name.openapi({ example: 'Djokovic' }),
     shortname: name.openapi({ example: 'N.DJO' }),
-    sex: z.enum(['M', 'F']),
+    sex: sex.openapi({ type: 'string', enum: [...SEXES] }),
     country: z.strictObject({
       code: z.string().toUpperCase().openapi({ description: 'IOC code', example: 'SRB' }),
     }),
@@ -72,7 +119,12 @@ export const PlayerSchema = z
   })
   .openapi('Player');
 
-export const PlayerListSchema = z.object({ players: z.array(PlayerSchema) }).openapi('PlayerList');
+export const PlayerListSchema = z
+  .object({
+    players: z.array(PlayerSchema),
+    nextCursor: z.string().nullable().openapi({ description: 'Null on the last page' }),
+  })
+  .openapi('PlayerList');
 
 export const CountryListSchema = z
   .object({
