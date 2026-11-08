@@ -85,7 +85,7 @@ Règles :
 
 ## Conventions
 
-- Code, noms et commentaires en anglais ; README et docs en français.
+- Code, noms et commentaires en anglais ; README, docs, tickets, commits et PR en français.
 - La branche `main` est protégée : tout passe par une pull request dont la CI est verte.
 - Branche, commits et PR contiennent l'identifiant Linear : branche `ten-12-images-s3`, PR `TEN-12 Images S3 + CloudFront`. Un ticket par PR.
 - Le job de CI s'appelle `ci` (nom utilisé par la protection de branche).
