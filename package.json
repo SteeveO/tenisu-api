@@ -15,6 +15,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
+    "generate:countries": "tsx scripts/generate-countries.ts",
     "typecheck": "tsc --noEmit"
   },
   "repository": {
@@ -33,7 +34,9 @@
     "@vitest/coverage-v8": "^5.1.0",
     "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
+    "flag-icons": "^7.6.0",
     "globals": "^17.14.0",
+    "i18n-iso-countries": "^7.14.0",
     "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
