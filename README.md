@@ -55,6 +55,8 @@ npm run dev:memory
 
 ## Déploiement
 
+API déployée : https://os6aj9jux6.execute-api.eu-north-1.amazonaws.com (documentation sur [`/docs`](https://os6aj9jux6.execute-api.eu-north-1.amazonaws.com/docs)).
+
 Un push sur `main` déploie l'API sur AWS avec Terraform, une fois la CI réussie, via OIDC et sans clé AWS stockée. La première mise en place se fait une seule fois avec un compte administrateur :
 
 ```bash
