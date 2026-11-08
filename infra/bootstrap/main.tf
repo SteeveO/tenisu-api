@@ -26,9 +26,11 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 
 locals {
-  region      = "eu-north-1"
-  account_id  = data.aws_caller_identity.current.account_id
-  repository  = "SteeveO/tenisu-api"
+  region     = "eu-north-1"
+  account_id = data.aws_caller_identity.current.account_id
+  # GitHub puts immutable ids in the `sub` claim of this repository's tokens:
+  # recreating an account or repository under the same name would not match.
+  repository  = "SteeveO@15817409/tenisu-api@1449327183"
   github_oidc = "token.actions.githubusercontent.com"
 }
 
