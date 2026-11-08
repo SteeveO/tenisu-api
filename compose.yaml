@@ -1,0 +1,28 @@
+services:
+  dynamodb:
+    image: docker.io/amazon/dynamodb-local:3.3.2
+    # -sharedDb: every client sees the same tables, whatever its credentials.
+    command: -jar DynamoDBLocal.jar -sharedDb -inMemory
+    ports:
+      - 8000:8000
+
+  localstack:
+    # Pinned: newer LocalStack images require an account.
+    image: docker.io/localstack/localstack:4.9.2
+    environment:
+      SERVICES: s3
+    ports:
+      - 4566:4566
+
+  # Runs once, then exits: creates the table and the bucket and loads the data.
+  seed:
+    build:
+      context: .
+      dockerfile: seed.Dockerfile
+    env_file: local.env
+    environment:
+      DYNAMODB_ENDPOINT: http://dynamodb:8000
+      S3_ENDPOINT: http://localstack:4566
+    depends_on:
+      - dynamodb
+      - localstack

@@ -17,12 +17,13 @@ Chaque choix doit pouvoir être justifié à l'oral : privilégie le simple et l
 ## Commandes
 
 ```bash
-npm run dev               # API en local via src/server.ts (http://localhost:3000)
+npm run dev               # API locale sur DynamoDB Local (http://localhost:3000, docker compose up requis)
+npm run dev:memory        # API locale en mémoire, sans conteneur
 npm test                  # tests unitaires (in-memory, aucun réseau)
 npm run test:integration  # tests sur DynamoDB Local (docker compose up requis)
 npm run lint              # ESLint
 npm run typecheck         # tsc --noEmit
-docker compose up         # DynamoDB Local + LocalStack
+docker compose up         # DynamoDB Local + LocalStack + seed (ou podman compose up)
 npm run seed              # (re)charge les données et images initiales, idempotent
 ```
 
@@ -38,6 +39,7 @@ src/
   adapters/      # implémentations : in-memory, DynamoDB, S3
   http/          # routes Hono/OpenAPI, schémas Zod, mapping des erreurs
   handler.ts     # point d'entrée Lambda : assemble les dépendances (injection manuelle)
+  seed/          # conversion validée des données initiales
   server.ts      # point d'entrée local (@hono/node-server), même assemblage que handler.ts
 scripts/         # seed, préparation des images (sharp, lancé une fois), génération du référentiel des pays
 assets/          # données (headtohead.json) et images initiales déjà normalisées, committées

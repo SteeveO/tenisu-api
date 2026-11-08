@@ -12,25 +12,40 @@ Node 22, TypeScript strict, [Hono](https://hono.dev) dans une Lambda AWS derriè
 
 ## Démarrage
 
-Prérequis : Node 22 (`nvm use` lit le fichier `.nvmrc`).
+Prérequis : Node 22 (`nvm use` lit le fichier `.nvmrc`). Aucun compte AWS n'est nécessaire.
+
+Avec les émulateurs (Docker ou Podman) :
 
 ```bash
 npm install
-npm run dev     # API sur http://localhost:3000
+docker compose up -d   # ou : podman compose up -d
+npm run dev            # API sur http://localhost:3000, documentation sur /docs
+```
+
+`docker compose up` lance DynamoDB Local et LocalStack (S3), puis charge les joueurs et les images. Après une modification des données ou du seed, ajouter `--build`, ou lancer `npm run seed`.
+
+Sans aucun conteneur, avec les joueurs initiaux en mémoire (les URLs d'images ne répondent pas dans ce mode) :
+
+```bash
+npm install
+npm run dev:memory
 ```
 
 ## Scripts
 
-| Commande                     | Rôle                                                |
-| ---------------------------- | --------------------------------------------------- |
-| `npm run dev`                | API en local, rechargée à chaque modification       |
-| `npm test`                   | tests unitaires (aucun réseau)                      |
-| `npm run test:coverage`      | tests unitaires avec rapport de couverture          |
-| `npm run test:integration`   | tests d'intégration sur DynamoDB Local              |
-| `npm run lint`               | ESLint (dont les règles d'architecture) et Prettier |
-| `npm run format`             | formate le code avec Prettier                       |
-| `npm run generate:countries` | régénère le référentiel des pays du domaine         |
-| `npm run typecheck`          | vérification des types (`tsc --noEmit`)             |
+| Commande                     | Rôle                                                           |
+| ---------------------------- | -------------------------------------------------------------- |
+| `npm run dev`                | API locale sur DynamoDB Local, rechargée à chaque modification |
+| `npm run dev:memory`         | API locale en mémoire, sans conteneur                          |
+| `npm test`                   | tests unitaires (aucun réseau)                                 |
+| `npm run test:coverage`      | tests unitaires avec rapport de couverture                     |
+| `npm run test:integration`   | tests d'intégration sur DynamoDB Local                         |
+| `npm run lint`               | ESLint (dont les règles d'architecture) et Prettier            |
+| `npm run format`             | formate le code avec Prettier                                  |
+| `npm run generate:countries` | régénère le référentiel des pays du domaine                    |
+| `npm run prepare:images`     | prépare une fois les photos et drapeaux committés              |
+| `npm run seed`               | (re)charge les données et images, idempotent                   |
+| `npm run typecheck`          | vérification des types (`tsc --noEmit`)                        |
 
 ## Architecture
 
@@ -43,6 +58,7 @@ src/
   ports/         # interfaces (PlayerRepository, ImageStorage…)
   adapters/      # implémentations des ports : in-memory, DynamoDB, S3
   http/          # routes Hono, validation, traduction des erreurs en HTTP
+  seed/          # conversion validée des données initiales
   handler.ts     # point d'entrée Lambda : assemble les dépendances
   server.ts      # point d'entrée local, même assemblage que handler.ts
 scripts/         # seed, préparation des images
@@ -52,3 +68,5 @@ docs/            # journal des décisions
 ```
 
 Les dépendances pointent vers l'intérieur (`http` → `application` → `domain`). Cette règle n'est pas qu'une convention : ESLint refuse qu'un fichier du domaine importe une autre couche, AWS, Hono ou Zod, et qu'un cas d'usage importe un adaptateur.
+
+Les drapeaux proviennent de [flag-icons](https://github.com/lipis/flag-icons) (licence MIT, copiée dans `assets/images/flags/LICENSE`).

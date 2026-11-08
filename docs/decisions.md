@@ -63,6 +63,7 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D10. Environnement local avec Docker Compose
 
+- **Statut** : précisée par D37.
 - **Décision** : `docker compose up` lance DynamoDB Local et LocalStack (S3), crée la table et le bucket, puis charge les données. Un mode « mémoire » (variable d'environnement) permet aussi de lancer l'API sans aucune dépendance.
 - **Pourquoi** : n'importe quel relecteur peut tester le projet en une commande, sans compte AWS, avec la même configuration qu'en production à l'adresse près.
 - **Alternatives écartées** : SAM local (lourd, lié à l'outillage AWS) ; MinIO (possible, mais LocalStack reproduit plus fidèlement les URLs présignées S3).
@@ -235,6 +236,18 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Bornes de plausibilité** : en plus des bornes de D34, `data.height` est compris entre 100 et 250 cm et `data.weight` entre 30 000 et 200 000 g, car une valeur impossible fausserait l'IMC moyen. `country.code` est accepté en minuscules et converti en majuscules.
 - **Pourquoi** : un consommateur existant, par exemple un front déjà prêt, doit pouvoir utiliser l'API sans adaptation : on ne casse pas un contrat de données fourni. L'enveloppe `players` permettra aussi d'ajouter un curseur de pagination (D27) à côté de la liste sans rien casser, ce qu'un tableau nu ne permet pas. La clarté des unités est obtenue par la documentation et par les noms du domaine, sans changer le contrat.
 - **Alternatives écartées** : format à plat avec les unités dans les noms (`weightGrams`), plus lisible mais qui casse le contrat d'origine ; ignorer les champs inconnus (un `id` envoyé par le client serait silencieusement perdu).
+
+## D37. Environnement local et chargement des données initiales
+
+- **Décision** :
+  - `docker compose up` lance DynamoDB Local, LocalStack (S3) et un conteneur `seed` qui s'arrête une fois les données chargées. Les fichiers restent compatibles avec Docker et Podman (images écrites en entier, sans dépendance à `service_healthy`).
+  - `npm run dev` lit `local.env` et utilise DynamoDB Local ; `npm run dev:memory` (`STORAGE=memory`) démarre sans aucun conteneur, avec les joueurs initiaux en mémoire.
+  - `src/seed/initial-players.ts` est la seule conversion du JSON initial : le schéma étend celui de `POST /players`, donc les bornes sont les mêmes. Une valeur invalide fait échouer le seed avant toute écriture.
+  - Photos normalisées à 600×900 au maximum, sans recadrage, en WebP ; le fichier committé s'appelle `assets/images/players/{id}.webp` et le hash de la clé S3 est calculé depuis son contenu.
+  - Le seed ne crée la table et le bucket que si `DYNAMODB_ENDPOINT` est défini (local) ; sur AWS, ils appartiennent à Terraform.
+- **Pourquoi** : le relecteur obtient une API avec données et images en une commande, et le seed tourne sans Node installé. La conversion réutilise le schéma HTTP car `headtohead.json` a le même format que le contrat (D36). Dériver le hash du contenu évite un manifeste qui pourrait se désynchroniser. `local.env` ne contient aucun secret : les émulateurs ne vérifient pas les identifiants.
+- **Alternatives écartées** : chargement au démarrage de l'API (un serveur ne doit pas écrire ses données initiales à chaque lancement) ; monter le dépôt dans le conteneur du seed (problèmes de droits SELinux, `node_modules` propre à la machine hôte) ; recadrer les photos (risque de couper un visage) ; LocalStack en version récente (compte obligatoire).
+- **Limite connue** : le conteneur `seed` est une image construite : après une modification des données ou du script, lancer `docker compose up --build`, ou `npm run seed`.
 
 ---
 
