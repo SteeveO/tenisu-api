@@ -191,10 +191,110 @@ resource "aws_iam_role_policy" "deploy" {
   policy = data.aws_iam_policy_document.deploy.json
 }
 
+# Pull requests only get a read-only role: it runs `terraform plan`, without
+# locking the state, and cannot read the table's data.
+data "aws_iam_policy_document" "plan_assume" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.github_oidc}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.github_oidc}:sub"
+      values   = ["repo:${local.repository}:pull_request"]
+    }
+  }
+}
+
+resource "aws_iam_role" "plan" {
+  name                 = "tenisu-github-plan"
+  assume_role_policy   = data.aws_iam_policy_document.plan_assume.json
+  max_session_duration = 3600
+}
+
+data "aws_iam_policy_document" "plan" {
+  statement {
+    sid       = "ListTerraformState"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.terraform_state.arn]
+  }
+
+  statement {
+    sid       = "ReadTerraformState"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.terraform_state.arn}/api/terraform.tfstate"]
+  }
+
+  statement {
+    sid       = "DescribeTables"
+    actions   = ["dynamodb:Describe*", "dynamodb:ListTagsOfResource"]
+    resources = ["arn:aws:dynamodb:${local.region}:${local.account_id}:table/tenisu-*"]
+  }
+
+  statement {
+    sid       = "ReadFunctions"
+    actions   = ["lambda:Get*", "lambda:List*"]
+    resources = ["arn:aws:lambda:${local.region}:${local.account_id}:function:tenisu-*"]
+  }
+
+  statement {
+    sid     = "ReadHttpApis"
+    actions = ["apigateway:GET"]
+    resources = [
+      "arn:aws:apigateway:${local.region}::/apis",
+      "arn:aws:apigateway:${local.region}::/apis/*",
+      "arn:aws:apigateway:${local.region}::/tags/*",
+    ]
+  }
+
+  statement {
+    sid       = "ReadLogGroupTags"
+    actions   = ["logs:ListTagsForResource"]
+    resources = ["arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/lambda/tenisu-*"]
+  }
+
+  statement {
+    sid       = "DescribeLogGroups"
+    actions   = ["logs:DescribeLogGroups"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "ReadLambdaRoles"
+    actions = [
+      "iam:GetRole",
+      "iam:GetRolePolicy",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListRolePolicies",
+    ]
+    resources = ["arn:aws:iam::${local.account_id}:role/tenisu-lambda-*"]
+  }
+}
+
+resource "aws_iam_role_policy" "plan" {
+  name   = "tenisu-github-plan"
+  role   = aws_iam_role.plan.id
+  policy = data.aws_iam_policy_document.plan.json
+}
+
 output "state_bucket" {
   value = aws_s3_bucket.terraform_state.bucket
 }
 
 output "deploy_role_arn" {
   value = aws_iam_role.deploy.arn
+}
+
+output "plan_role_arn" {
+  value = aws_iam_role.plan.arn
 }
