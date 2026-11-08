@@ -39,8 +39,8 @@ src/
   http/          # routes Hono/OpenAPI, schémas Zod, mapping des erreurs
   handler.ts     # point d'entrée Lambda : assemble les dépendances (injection manuelle)
   server.ts      # point d'entrée local (@hono/node-server), même assemblage que handler.ts
-scripts/         # seed, préparation des images (sharp, lancé une fois)
-assets/          # images initiales déjà normalisées, committées
+scripts/         # seed, préparation des images (sharp, lancé une fois), génération du référentiel des pays
+assets/          # données (headtohead.json) et images initiales déjà normalisées, committées
 infra/           # Terraform
 ```
 
@@ -69,7 +69,7 @@ Règles :
 
 ## Pièges connus des données
 
-- Tri « du meilleur au moins bon » : `rank` croissant, puis `points` décroissants en cas d'égalité.
+- Tri « du meilleur au moins bon » : `rank` croissant, puis `points` décroissants en cas d'égalité, puis `id` croissant (ordre déterministe).
 - `weight` est en grammes, `height` en centimètres : convertir pour l'IMC (kg / m²).
 - Ratio de victoires par pays : total des victoires du pays / total de ses matchs (`last`, 1 = victoire), pas la moyenne des ratios.
 - Médiane : gérer un nombre pair d'éléments.

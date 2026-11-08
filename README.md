@@ -21,15 +21,16 @@ npm run dev     # API sur http://localhost:3000
 
 ## Scripts
 
-| Commande                   | Rôle                                                |
-| -------------------------- | --------------------------------------------------- |
-| `npm run dev`              | API en local, rechargée à chaque modification       |
-| `npm test`                 | tests unitaires (aucun réseau)                      |
-| `npm run test:coverage`    | tests unitaires avec rapport de couverture          |
-| `npm run test:integration` | tests d'intégration sur DynamoDB Local              |
-| `npm run lint`             | ESLint (dont les règles d'architecture) et Prettier |
-| `npm run format`           | formate le code avec Prettier                       |
-| `npm run typecheck`        | vérification des types (`tsc --noEmit`)             |
+| Commande                     | Rôle                                                |
+| ---------------------------- | --------------------------------------------------- |
+| `npm run dev`                | API en local, rechargée à chaque modification       |
+| `npm test`                   | tests unitaires (aucun réseau)                      |
+| `npm run test:coverage`      | tests unitaires avec rapport de couverture          |
+| `npm run test:integration`   | tests d'intégration sur DynamoDB Local              |
+| `npm run lint`               | ESLint (dont les règles d'architecture) et Prettier |
+| `npm run format`             | formate le code avec Prettier                       |
+| `npm run generate:countries` | régénère le référentiel des pays du domaine         |
+| `npm run typecheck`          | vérification des types (`tsc --noEmit`)             |
 
 ## Architecture
 
