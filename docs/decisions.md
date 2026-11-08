@@ -265,6 +265,15 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Alternatives écartées** : clés AWS dans les secrets GitHub (longue durée, à faire tourner) ; table DynamoDB de verrou (dépréciée par Terraform au profit du verrou S3) ; une liste d'actions exhaustive pour le déploiement (fragile : la politique générée depuis un plan ne couvre que la création, pas les mises à jour) ; une route par endpoint dans API Gateway (duplique le routeur et perd le format RFC 7807 sur les chemins inconnus).
 - **Limite connue** : le rôle de déploiement peut créer un rôle `tenisu-lambda-*` avec n'importe quelle politique, donc obtenir plus de droits via une Lambda. Le risque est borné par la confiance limitée à `main`, branche protégée. Une limite de permissions (permissions boundary) le fermerait : à ajouter sur un compte partagé.
 
+## D39. Images servies par CloudFront, données initiales chargées par la CI
+
+- **Décision** :
+  - Bucket S3 privé, lu uniquement par la distribution CloudFront (Origin Access Control et condition `AWS:SourceArn`). `CDN_BASE_URL` pointe vers le domaine CloudFront.
+  - Le cache suit le `Cache-Control` posé par le seed : photos `public, max-age=31536000, immutable` car leur clé contient le hash ; drapeaux `public, max-age=86400` car leur clé est fixe. Classe de prix `PriceClass_100` (Europe et Amérique du Nord).
+  - Le job `deploy` lance le seed après `terraform apply`, à chaque déploiement.
+- **Pourquoi** : un environnement neuf est complet sans étape manuelle, et le seed est sans risque à relancer depuis D37 (il n'écrase aucun joueur). Un cache d'un jour sur les drapeaux laisse corriger un fichier sans invalidation.
+- **Alternatives écartées** : lancer le seed à la main (étape oubliable, non reproductible) ; drapeaux en cache immuable (une clé fixe ne permet pas de remplacer le fichier) ; classe de prix mondiale (plus chère, sans audience identifiée hors de ces régions).
+
 ---
 
 ## Choix sur les données

@@ -29,8 +29,7 @@ resource "aws_lambda_function" "api" {
       # Readable stack traces in CloudWatch from the minified bundle.
       NODE_OPTIONS  = "--enable-source-maps"
       PLAYERS_TABLE = aws_dynamodb_table.players.name
-      # Placeholder until CloudFront exists (TEN-12).
-      CDN_BASE_URL = "https://cdn.invalid"
+      CDN_BASE_URL  = "https://${aws_cloudfront_distribution.images.domain_name}"
     }
   }
 
