@@ -18,6 +18,9 @@ const COUNTER_KEY = 'COUNTER#player';
 // Position of the name item in the creation transaction.
 const NAME_ITEM_POSITION = 1;
 
+const MAX_WRITE_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 25;
+
 // Items are parsed rather than cast: a corrupted item fails loudly here
 // instead of spreading through the domain. Unknown keys (PK…) are stripped.
 const playerItemSchema = z.object({
@@ -80,28 +83,30 @@ export class DynamoDbPlayerRepository implements PlayerRepository {
     const player: Player = { ...newPlayer, id: await this.nextId(), pictureKey: null };
 
     try {
-      await this.client.send(
-        new TransactWriteCommand({
-          TransactItems: [
-            {
-              Put: {
-                TableName: this.tableName,
-                Item: { PK: playerKey(player.id), entityType: PLAYER_ENTITY_TYPE, ...player },
-                ConditionExpression: 'attribute_not_exists(PK)',
+      await retryOnTransactionConflict(() =>
+        this.client.send(
+          new TransactWriteCommand({
+            TransactItems: [
+              {
+                Put: {
+                  TableName: this.tableName,
+                  Item: { PK: playerKey(player.id), entityType: PLAYER_ENTITY_TYPE, ...player },
+                  ConditionExpression: 'attribute_not_exists(PK)',
+                },
               },
-            },
-            {
-              Put: {
-                TableName: this.tableName,
-                Item: { PK: `NAME#${playerNameKey(firstname, lastname)}`, playerId: player.id },
-                ConditionExpression: 'attribute_not_exists(PK)',
+              {
+                Put: {
+                  TableName: this.tableName,
+                  Item: { PK: `NAME#${playerNameKey(firstname, lastname)}`, playerId: player.id },
+                  ConditionExpression: 'attribute_not_exists(PK)',
+                },
               },
-            },
-          ],
-        }),
+            ],
+          }),
+        ),
       );
     } catch (error) {
-      if (isNameAlreadyTaken(error)) {
+      if (isNameAlreadyStored(error)) {
         throw new PlayerAlreadyExistsError(firstname, lastname);
       }
       throw error;
@@ -125,13 +130,40 @@ export class DynamoDbPlayerRepository implements PlayerRepository {
 }
 
 /**
- * ConditionalCheckFailed: the name is already stored.
- * TransactionConflict: a concurrent transaction is writing the same name right now.
+ * Only a failed condition proves that the name is stored. A TransactionConflict
+ * means another transaction was touching the item, and that one may fail too.
  */
-export function isNameAlreadyTaken(error: unknown): boolean {
-  if (!(error instanceof TransactionCanceledException)) {
-    return false;
+export function isNameAlreadyStored(error: unknown): boolean {
+  return (
+    error instanceof TransactionCanceledException &&
+    (error.CancellationReasons ?? []).at(NAME_ITEM_POSITION)?.Code === 'ConditionalCheckFailed'
+  );
+}
+
+function isTransactionConflict(error: unknown): boolean {
+  return (
+    error instanceof TransactionCanceledException &&
+    (error.CancellationReasons ?? []).some((reason) => reason.Code === 'TransactionConflict')
+  );
+}
+
+/**
+ * The SDK does not retry cancelled transactions. Retrying is safe: a cancelled
+ * transaction wrote nothing. The random delay keeps concurrent writers from
+ * colliding again; once attempts are exhausted the conflict surfaces as an error.
+ */
+export async function retryOnTransactionConflict(write: () => Promise<unknown>): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await write();
+      return;
+    } catch (error) {
+      if (!isTransactionConflict(error) || attempt === MAX_WRITE_ATTEMPTS) {
+        throw error;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.random() * RETRY_BASE_DELAY_MS * attempt),
+      );
+    }
   }
-  const code = (error.CancellationReasons ?? []).at(NAME_ITEM_POSITION)?.Code;
-  return code === 'ConditionalCheckFailed' || code === 'TransactionConflict';
 }
