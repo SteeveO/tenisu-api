@@ -23,6 +23,7 @@ npm test                  # tests unitaires (in-memory, aucun réseau)
 npm run test:integration  # tests sur DynamoDB Local (docker compose up requis)
 npm run lint              # ESLint
 npm run typecheck         # tsc --noEmit
+npm run build             # bundle esbuild de la Lambda (dist/api/handler.cjs)
 docker compose up         # DynamoDB Local + LocalStack + seed + API (ou podman compose up)
 npm run seed              # ajoute les données manquantes et les images initiales, idempotent
 ```
@@ -96,6 +97,7 @@ Règles :
 
 ## Infra
 
+- `infra/bootstrap` (state S3, OIDC, rôle de déploiement) s'applique à la main ; `infra/` se déploie par la CI sur `main` (D38).
 - Région : eu-north-1 (Stockholm). CloudFront est global ; un éventuel certificat ACM pour un domaine personnalisé doit être créé en us-east-1.
 - Profil AWS local : `tenisu` (IAM Identity Center, `aws sso login --profile tenisu`, puis `AWS_PROFILE=tenisu`).
 - Lambdas en arm64 ; `sharp` installé pour `linux-arm64` au packaging (D30).

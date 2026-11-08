@@ -253,6 +253,17 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Alternatives écartées** : réécrire les joueurs initiaux à chaque seed (écrase les modifications faites depuis) ; laisser l'API hors de Compose (Node obligatoire pour le relecteur) ; chargement au démarrage de l'API (un serveur ne doit pas écrire ses données initiales à chaque lancement) ; monter le dépôt dans le conteneur du seed (problèmes de droits SELinux, `node_modules` propre à la machine hôte) ; recadrer les photos (risque de couper un visage) ; LocalStack en version récente (le relecteur devrait créer un compte et fournir un jeton).
 - **Limites connues** : les conteneurs `seed` et `api` sont des images construites : après une modification du code ou des données, lancer `docker compose up --build`. Modifier `headtohead.json` ne met pas à jour un joueur déjà présent ; en local, `docker compose down` repart d'une base vide. L'API de Compose et `npm run dev` utilisent le même port. Une version figée de LocalStack ne reçoit plus de correctifs, ce qui est acceptable pour un émulateur utilisé uniquement en local ; si le tag cessait de fonctionner sans jeton, il faudrait fournir un jeton ou remplacer cet émulateur.
 
+## D38. Infrastructure Terraform et déploiement par OIDC
+
+- **Décision** :
+  - `infra/bootstrap` est appliqué une seule fois, à la main et en state local : bucket du state Terraform, fournisseur OIDC GitHub et rôle de déploiement `tenisu-github-deploy`. Tout le reste est dans `infra/`, avec un state distant dans S3 et le verrou natif de S3 (`use_lockfile`).
+  - Un push sur `main`, une fois le job `ci` réussi, lance `terraform apply` depuis GitHub Actions. Le rôle ne peut être assumé que par une exécution de ce dépôt sur `main` (conditions `aud` et `sub`), sans aucune clé AWS stockée.
+  - La Lambda de l'API n'a que `GetItem`, `PutItem` et `UpdateItem` sur la table, `Query` sur l'index, et l'écriture de ses journaux. Les politiques ont été générées avec IAM Policy Autopilot, puis réduites aux appels réels du code.
+  - Bundle esbuild en CommonJS, sans dépendance externe ; une seule route `$default` : c'est Hono qui route et qui formate les erreurs.
+- **Pourquoi** : le bootstrap règle un problème de poule et d'œuf (le state et le rôle doivent exister avant le premier déploiement). OIDC remplace des clés longue durée par des identifiants temporaires. Le rôle de déploiement a des actions larges (`lambda:*`, `dynamodb:*`…) car Terraform crée, modifie et supprime ces ressources, mais seulement sur les ressources `tenisu-*`.
+- **Alternatives écartées** : clés AWS dans les secrets GitHub (longue durée, à faire tourner) ; table DynamoDB de verrou (dépréciée par Terraform au profit du verrou S3) ; une liste d'actions exhaustive pour le déploiement (fragile : la politique générée depuis un plan ne couvre que la création, pas les mises à jour) ; une route par endpoint dans API Gateway (duplique le routeur et perd le format RFC 7807 sur les chemins inconnus).
+- **Limite connue** : le rôle de déploiement peut créer un rôle `tenisu-lambda-*` avec n'importe quelle politique, donc obtenir plus de droits via une Lambda. Le risque est borné par la confiance limitée à `main`, branche protégée. Une limite de permissions (permissions boundary) le fermerait : à ajouter sur un compte partagé.
+
 ---
 
 ## Choix sur les données
