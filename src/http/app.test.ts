@@ -281,7 +281,6 @@ describe('POST /players', () => {
     ['weight', 200001],
     ['height', 99],
     ['height', 251],
-    ['age', 0],
     ['age', 101],
     ['height', 180.5],
     ['age', 0],
@@ -304,7 +303,7 @@ describe('POST /players', () => {
     await expectProblem(response, 400, '/players');
   });
 
-  it('accepts the bounds of plausible weight and height', async () => {
+  it('accepts the bounds of plausible weight, height and age', async () => {
     const app = appWithPlayers();
 
     const lightest = await postPlayer(app, {
