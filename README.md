@@ -53,6 +53,19 @@ npm run dev:memory
 | `npm run seed`               | ajoute les données manquantes et les images, idempotent        |
 | `npm run typecheck`          | vérification des types (`tsc --noEmit`)                        |
 
+## Déploiement
+
+API déployée : https://os6aj9jux6.execute-api.eu-north-1.amazonaws.com (documentation sur [`/docs`](https://os6aj9jux6.execute-api.eu-north-1.amazonaws.com/docs)).
+
+Un push sur `main` déploie l'API sur AWS avec Terraform, une fois la CI réussie, via OIDC et sans clé AWS stockée. La première mise en place se fait une seule fois avec un compte administrateur :
+
+```bash
+aws sso login --profile tenisu
+cd infra/bootstrap
+AWS_PROFILE=tenisu terraform init
+AWS_PROFILE=tenisu terraform apply
+```
+
 ## Architecture
 
 Architecture hexagonale : le métier ne dépend de rien, l'infrastructure dépend du métier.
