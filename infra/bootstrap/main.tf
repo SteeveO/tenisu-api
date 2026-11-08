@@ -286,11 +286,11 @@ data "aws_iam_policy_document" "plan" {
     ]
   }
 
-  # On the bucket only: s3:GetObject applies to objects and is not granted.
+  # The exact bucket ARN: a trailing wildcard would also match its objects.
   statement {
     sid       = "ReadImagesBucket"
     actions   = ["s3:Get*", "s3:ListBucket"]
-    resources = ["arn:aws:s3:::tenisu-images-*"]
+    resources = ["arn:aws:s3:::tenisu-images-${local.account_id}"]
   }
 
   statement {
