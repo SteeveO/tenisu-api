@@ -8,6 +8,7 @@ import { presentCountry } from './country-presenter';
 import { encodeCursor } from './player-cursor';
 import { presentPlayer, toNewPlayer } from './player-presenter';
 import { createErrorHandler, handleNotFound, RequestValidationError } from './problem';
+import { requestIdHeader } from './request-id';
 import {
   createPlayerRoute,
   getPlayerRoute,
@@ -42,7 +43,9 @@ export function createApp({ useCases, cdnBaseUrl, logger }: AppDependencies): Op
     },
   });
 
-  // First middleware: it also times preflight requests and failed requests.
+  app.use('*', requestIdHeader);
+
+  // Before CORS: it also times preflight requests and failed requests.
   app.use('*', async (c, next) => {
     const start = performance.now();
     await next();
@@ -55,7 +58,10 @@ export function createApp({ useCases, cdnBaseUrl, logger }: AppDependencies): Op
   });
 
   // Any origin: the API is public and uses no cookies (D40).
-  app.use('*', cors({ allowMethods: ['GET', 'POST'], exposeHeaders: ['Location'] }));
+  app.use(
+    '*',
+    cors({ allowMethods: ['GET', 'POST'], exposeHeaders: ['Location', 'X-Request-Id'] }),
+  );
 
   app.onError(createErrorHandler(logger));
   app.notFound(handleNotFound);

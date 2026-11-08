@@ -21,7 +21,9 @@ const json = <T extends z.ZodType>(schema: T, description: string) => ({
   content: { 'application/json': { schema } },
 });
 
-const internalError = problem('Unexpected error');
+const internalError = problem(
+  'Unexpected error. On AWS, the X-Request-Id response header identifies the matching logs.',
+);
 
 export const listPlayersRoute = createRoute({
   method: 'get',

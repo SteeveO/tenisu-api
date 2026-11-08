@@ -30,6 +30,11 @@ function appWith(repository: PlayerRepository, logger: Logger = aLogger()) {
   return createApp({ useCases: new PlayerUseCases(repository), cdnBaseUrl: CDN, logger });
 }
 
+function failingRepository(message = 'unavailable'): PlayerRepository {
+  const fail = () => Promise.reject(new Error(message));
+  return { findAll: fail, findById: fail, create: fail };
+}
+
 const appWithPlayers = (...players: Player[]) => appWith(new InMemoryPlayerRepository(players));
 
 function postPlayer(app: ReturnType<typeof createApp>, body: unknown) {
@@ -422,14 +427,10 @@ describe('GET /countries', () => {
 
 describe('unexpected errors', () => {
   const secret = 'dynamodb table players-prod is on fire';
-  const failingRepository: PlayerRepository = {
-    findAll: () => Promise.reject(new Error(secret)),
-    findById: () => Promise.reject(new Error(secret)),
-    create: () => Promise.reject(new Error(secret)),
-  };
+  const failing = failingRepository(secret);
 
   it('responds 500 without leaking internal details', async () => {
-    const response = await appWith(failingRepository).request('/players');
+    const response = await appWith(failing).request('/players');
 
     expect(response.status).toBe(500);
     expect(response.headers.get('Content-Type')).toBe('application/problem+json');
@@ -439,7 +440,7 @@ describe('unexpected errors', () => {
   it('logs the error with its details', async () => {
     const logger = aLogger();
 
-    await appWith(failingRepository, logger).request('/players');
+    await appWith(failing, logger).request('/players');
 
     expect(logger.error).toHaveBeenCalledExactlyOnceWith('Unexpected error', new Error(secret));
   });
@@ -495,6 +496,30 @@ describe('request logs', () => {
   });
 });
 
+describe('X-Request-Id header', () => {
+  const lambda = { lambdaContext: { awsRequestId: 'request-1' } };
+  const repository = new InMemoryPlayerRepository();
+
+  it('returns the Lambda request id on a successful response', async () => {
+    const response = await appWith(repository).request('/players', {}, lambda);
+
+    expect(response.headers.get('X-Request-Id')).toBe('request-1');
+  });
+
+  it('returns it on a problem response', async () => {
+    const response = await appWith(failingRepository()).request('/players', {}, lambda);
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get('X-Request-Id')).toBe('request-1');
+  });
+
+  it('is absent outside Lambda', async () => {
+    const response = await appWith(repository).request('/players');
+
+    expect(response.headers.has('X-Request-Id')).toBe(false);
+  });
+});
+
 describe('GET /health', () => {
   it('responds that the API is running', async () => {
     const response = await appWithPlayers().request('/health');
@@ -504,13 +529,7 @@ describe('GET /health', () => {
   });
 
   it('does not touch the database', async () => {
-    const repository: PlayerRepository = {
-      findAll: () => Promise.reject(new Error('unavailable')),
-      findById: () => Promise.reject(new Error('unavailable')),
-      create: () => Promise.reject(new Error('unavailable')),
-    };
-
-    const response = await appWith(repository).request('/health');
+    const response = await appWith(failingRepository()).request('/health');
 
     expect(response.status).toBe(200);
   });
@@ -537,7 +556,7 @@ describe('CORS', () => {
   it('exposes the Location header', async () => {
     const response = await appWithPlayers().request('/players', withOrigin);
 
-    expect(response.headers.get('Access-Control-Expose-Headers')).toBe('Location');
+    expect(response.headers.get('Access-Control-Expose-Headers')).toBe('Location,X-Request-Id');
   });
 
   it('applies to problem responses', async () => {
