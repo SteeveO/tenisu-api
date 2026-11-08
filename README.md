@@ -20,7 +20,11 @@ curl "$API/players?sex=F&country=USA&limit=1" # filtres et pagination
 curl "$API/health"                           # l'API répond-elle ?
 ```
 
-Créer un joueur ; relancer la même commande répond `409`, car le nom existe déjà :
+**Tri :** par `rank`, puis par `points`. Les données mélangent les circuits masculin et féminin, dont les points ne sont pas comparables, et elles sont incohérentes (Nadal n°1 avec moins de points que Djokovic n°2) : le classement fourni fait foi.
+
+**Ratio par pays :** total des victoires du pays sur le total de ses matchs, pas la moyenne des ratios des joueurs.
+
+Créer un joueur ; si le joueur existe déjà (créé par un autre relecteur, par exemple), la réponse est `409` :
 
 ```bash
 curl -i -X POST "$API/players" \
