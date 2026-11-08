@@ -327,6 +327,53 @@ describe('unknown routes', () => {
   });
 });
 
+describe('CORS', () => {
+  const ORIGIN = 'https://front.example.com';
+  const withOrigin = { headers: { Origin: ORIGIN } };
+
+  it('allows any origin on a successful response', async () => {
+    const response = await appWithPlayers().request('/players', withOrigin);
+
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+  });
+
+  it('exposes the Location header', async () => {
+    const response = await appWithPlayers().request('/players', withOrigin);
+
+    expect(response.headers.get('Access-Control-Expose-Headers')).toBe('Location');
+  });
+
+  it('applies to problem responses', async () => {
+    const app = appWithPlayers();
+
+    const responses = await Promise.all([
+      app.request('/players/999', withOrigin),
+      app.request('/players/abc', withOrigin),
+      app.request('/unknown', withOrigin),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([404, 400, 404]);
+    for (const response of responses) {
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    }
+  });
+
+  it('answers the preflight request of a JSON POST', async () => {
+    const response = await appWithPlayers().request('/players', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: ORIGIN,
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'content-type',
+      },
+    });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get('Access-Control-Allow-Methods')).toBe('GET,POST');
+    expect(response.headers.get('Access-Control-Allow-Headers')).toBe('content-type');
+  });
+});
+
 describe('API documentation', () => {
   it('describes every route in the OpenAPI document', async () => {
     const document: unknown = await (await appWithPlayers().request('/openapi.json')).json();

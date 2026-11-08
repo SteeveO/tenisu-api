@@ -1,5 +1,6 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
+import { cors } from 'hono/cors';
 import type { PlayerUseCases } from '../application/player-use-cases';
 import { presentPlayer, toNewPlayer } from './player-presenter';
 import { handleError, handleNotFound, RequestValidationError } from './problem';
@@ -28,6 +29,9 @@ export function createApp({ useCases, cdnBaseUrl }: AppDependencies): OpenAPIHon
       }
     },
   });
+
+  // Any origin: the API is public and uses no cookies (D40).
+  app.use('*', cors({ allowMethods: ['GET', 'POST'], exposeHeaders: ['Location'] }));
 
   app.onError(handleError);
   app.notFound(handleNotFound);

@@ -274,6 +274,12 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Pourquoi** : un environnement neuf est complet sans étape manuelle, et le seed est sans risque à relancer depuis D37 (il n'écrase aucun joueur). Un cache d'un jour sur les drapeaux laisse corriger un fichier sans invalidation.
 - **Alternatives écartées** : lancer le seed à la main (étape oubliable, non reproductible) ; drapeaux en cache immuable (une clé fixe ne permet pas de remplacer le fichier) ; classe de prix mondiale (plus chère, sans audience identifiée hors de ces régions).
 
+## D40. CORS ouvert à toutes les origines
+
+- **Décision** : l'API autorise toutes les origines pour `GET` et `POST`, via le middleware `cors` de Hono, et expose le header `Location`. Les réponses d'erreur portent aussi ces en-têtes. C'est l'application qui répond aux requêtes préalables (`OPTIONS`), car la route `$default` d'API Gateway lui transmet tout.
+- **Pourquoi** : un front servi depuis un autre domaine doit pouvoir appeler l'API depuis le navigateur. L'API est publique et n'utilise ni cookie ni session : l'origine `*` n'expose donc aucune donnée liée à un utilisateur. Sans `Location` exposé, un front ne pourrait pas lire l'URL du joueur créé.
+- **Alternatives écartées** : liste d'origines limitée pour `POST` (CORS ne protège que les navigateurs : un `curl` passerait quand même, et la protection des écritures relève de l'authentification, voir « Hors périmètre ») ; configuration CORS dans API Gateway (règle séparée du code, invisible dans les tests).
+
 ---
 
 ## Choix sur les données
