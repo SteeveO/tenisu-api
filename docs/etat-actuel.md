@@ -21,7 +21,7 @@ Ce qui est vrai aujourd'hui, à mettre à jour dès qu'une décision change une 
 
 ## Validation et données
 
-- Valeurs validées à chaque entrée (`POST /players`, seed), pas dans le domaine (D34). Bornes : taille 100–250 cm, poids 30 000–200 000 g (D36).
+- Valeurs validées à chaque entrée (`POST /players`, seed), pas dans le domaine (D34). Bornes : taille 100–250 cm, poids 30 000–200 000 g (D36), âge 1–100.
 - Le référentiel des pays est généré une fois et committé ; 206 codes CIO (D33).
 - Le seed insère ce qui manque, n'écrase aucun joueur et ne fait jamais redescendre le compteur (D22, D37).
 - Un `409` consomme un identifiant ; `GET /players` peut être en léger retard sur une création (GSI) ; un `TransactionConflict` est relancé, jusqu'à trois tentatives au total (D35).

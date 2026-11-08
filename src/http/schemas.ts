@@ -85,7 +85,7 @@ export const CreatePlayerBodySchema = z
         .min(100)
         .max(250)
         .openapi({ description: 'Height in centimeters', example: 188 }),
-      age: positiveInteger.openapi({ example: 31 }),
+      age: positiveInteger.max(100).openapi({ example: 31 }),
       last: z
         .array(matchResult)
         .max(100)
