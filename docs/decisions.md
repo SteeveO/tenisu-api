@@ -295,6 +295,12 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Alternatives écartées** : curseur par décalage (une création décale les pages) ; pas de limite par défaut (réponse non bornée) ; refuser les paramètres inconnus (gênant pour un paramètre ajouté par un proxy ou un outil, sans intérêt pour une lecture).
 - **Limite connue** : chaque page relit tous les joueurs (D27). Au-delà de quelques milliers, il faudrait un index trié.
 
+## D43. Journaux structurés et endpoint de santé
+
+- **Décision** : un journal JSON par requête (méthode, chemin sans paramètres, statut, durée) via `@aws-lambda-powertools/logger`, avec l'identifiant de requête Lambda et l'indicateur de démarrage à froid. Seules les erreurs inattendues (`500`) sont journalisées comme erreurs, avec leur trace. Le journal passe par un port `Logger`, injecté comme les autres dépendances. `GET /health` répond `200 {"status":"ok"}` sans interroger la base.
+- **Pourquoi** : des journaux JSON se filtrent dans CloudWatch Logs Insights (par statut, par durée). Une erreur de requête (`400`, `404`) est un comportement normal et ne doit pas déclencher d'alerte. Sans paramètres, les journaux ne contiennent pas de données saisies par les clients. L'endpoint de santé indique que l'API tourne ; il reste gratuit, rapide, et une panne de la base n'en fait pas redémarrer les instances.
+- **Alternatives écartées** : `console.log` (texte libre, difficile à filtrer, identifiant de requête absent) ; Powertools importé directement dans `http/` (la couche HTTP dépendrait d'une bibliothèque liée à Lambda, et les tests auraient besoin de simuler la console) ; vérifier DynamoDB dans `/health` (coût à chaque appel, et une indisponibilité de la base se voit déjà par les `500`).
+
 ---
 
 ## Choix sur les données
