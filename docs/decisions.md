@@ -122,6 +122,7 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D19. Référentiel des pays dans le domaine dès le départ
 
+- **Statut** : mode de production du référentiel précisé par D33 (table générée, committée dans le domaine).
 - **Décision** : le référentiel des pays (code CIO, code ISO, nom en français) est un module du domaine disponible dès le ticket domaine ; `POST /players` refuse un pays inconnu dès sa première version. Seul l'endpoint `GET /countries` arrive plus tard. Noms en français via `i18n-iso-countries` (locale `fr`), correspondance CIO → ISO maintenue dans une table versionnée.
 - **Pourquoi** : la validation du pays fait partie de la règle métier de création, pas d'une fonctionnalité optionnelle. Les noms en français suivent la langue des données d'origine et de l'audience.
 - **Alternatives écartées** : valider le pays plus tard (l'API accepterait des données incohérentes entre-temps) ; noms en anglais (rien ne le justifie ici).
@@ -208,11 +209,17 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Alternatives écartées** : valeurs de D28 (10 requêtes/s, trop basses pour une démonstration ou un test de charge léger) ; aucune concurrence réservée (un seul verrou, celui d'API Gateway).
 - **Limite connue** : la limitation d'API Gateway HTTP API est globale, pas par adresse IP (voir « Hors périmètre »).
 
+## D33. Référentiel des pays généré une fois et committé
+
+- **Décision** : `scripts/generate-countries.ts` produit `src/domain/countries.generated.ts`, une simple table de données committée. Le script part de la correspondance CIO → ISO (`scripts/ioc-to-iso.ts`) et échoue si un pays n'a pas de nom français (`i18n-iso-countries`) ou pas de drapeau (`flag-icons`). Ces deux bibliothèques restent des dépendances de développement. La liste des 206 codes CIO a été recoupée avec la liste publique des comités nationaux olympiques.
+- **Pourquoi** : le domaine reste sans aucune dépendance, comme l'impose l'architecture, et ne charge pas de bibliothèque dans la Lambda. La table se relit dans une PR, et tout code accepté par l'API a forcément un nom et un drapeau.
+- **Alternatives écartées** : importer `i18n-iso-countries` dans le domaine (contraire à la règle d'architecture) ; passer par un port et un adaptateur (de l'indirection pour des données statiques).
+
 ---
 
 ## Choix sur les données
 
-- **Tri « du meilleur au moins bon »** : `rank` croissant, puis `points` décroissants en cas d'égalité. Les circuits masculin et féminin sont mélangés et leurs points ne sont pas comparables ; les données sont par ailleurs incohérentes (Nadal n°1 avec 1 982 points, Djokovic n°2 avec 2 542). Le classement fourni fait donc foi.
+- **Tri « du meilleur au moins bon »** : `rank` croissant, puis `points` décroissants en cas d'égalité, puis `id` croissant pour que l'ordre ne dépende jamais de la base (DynamoDB ne garantit pas d'ordre, et la pagination a besoin d'un ordre stable). Les circuits masculin et féminin sont mélangés et leurs points ne sont pas comparables ; les données sont par ailleurs incohérentes (Nadal n°1 avec 1 982 points, Djokovic n°2 avec 2 542). Le classement fourni fait donc foi.
 - **Unités** : `weight` est en grammes, `height` en centimètres ; conversion en kg et en m pour l'IMC.
 - **Ratio de victoires par pays** : total des victoires du pays divisé par le total de ses matchs (champ `last`, 1 = victoire), et non moyenne des ratios des joueurs.
 - **Médiane de la taille** : moyenne des deux valeurs centrales quand le nombre de joueurs est pair.
