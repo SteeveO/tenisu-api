@@ -7,6 +7,7 @@ import {
   PlayerNotFoundError,
   UnknownCountryError,
 } from '../domain/errors';
+import type { Logger } from '../ports/logger';
 
 interface FieldError {
   readonly path: string;
@@ -28,7 +29,7 @@ interface ProblemDescription {
 }
 
 /** The only place where errors are translated into HTTP. */
-function describeProblem(error: unknown): ProblemDescription {
+function describeProblem(error: Error, logger: Logger): ProblemDescription {
   if (error instanceof RequestValidationError) {
     return {
       status: 400,
@@ -51,7 +52,7 @@ function describeProblem(error: unknown): ProblemDescription {
   }
 
   // Details are logged, never sent: they could expose internals.
-  console.error(error);
+  logger.error('Unexpected error', error);
   return {
     status: 500,
     detail: 'An unexpected error occurred.',
@@ -67,8 +68,9 @@ function problemResponse(context: Context, problem: ProblemDescription): Respons
   });
 }
 
-export function handleError(error: unknown, context: Context): Response {
-  return problemResponse(context, describeProblem(error));
+export function createErrorHandler(logger: Logger) {
+  return (error: Error, context: Context): Response =>
+    problemResponse(context, describeProblem(error, logger));
 }
 
 export function handleNotFound(context: Context): Response {

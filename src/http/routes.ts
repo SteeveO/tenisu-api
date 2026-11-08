@@ -2,6 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import {
   CountryListSchema,
   CreatePlayerBodySchema,
+  HealthSchema,
   PlayerIdParamsSchema,
   PlayerListQuerySchema,
   PlayerListSchema,
@@ -20,7 +21,9 @@ const json = <T extends z.ZodType>(schema: T, description: string) => ({
   content: { 'application/json': { schema } },
 });
 
-const internalError = problem('Unexpected error');
+const internalError = problem(
+  'Unexpected error. On AWS, the X-Request-Id response header identifies the matching logs.',
+);
 
 export const listPlayersRoute = createRoute({
   method: 'get',
@@ -93,5 +96,14 @@ export const listCountriesRoute = createRoute({
       }),
     },
     500: internalError,
+  },
+});
+
+export const healthRoute = createRoute({
+  method: 'get',
+  path: '/health',
+  summary: 'Check that the API is running',
+  responses: {
+    200: json(HealthSchema, 'The API is running'),
   },
 });

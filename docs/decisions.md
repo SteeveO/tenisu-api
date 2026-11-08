@@ -278,7 +278,7 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D40. CORS ouvert à toutes les origines
 
-- **Décision** : l'API autorise toutes les origines pour `GET` et `POST`, via le middleware `cors` de Hono, et expose le header `Location`. Les réponses d'erreur portent aussi ces en-têtes. C'est l'application qui répond aux requêtes préalables (`OPTIONS`), car la route `$default` d'API Gateway lui transmet tout.
+- **Décision** : l'API autorise toutes les origines pour `GET` et `POST`, via le middleware `cors` de Hono, et expose les headers `Location` et `X-Request-Id` (D43). Les réponses d'erreur portent aussi ces en-têtes. C'est l'application qui répond aux requêtes préalables (`OPTIONS`), car la route `$default` d'API Gateway lui transmet tout.
 - **Pourquoi** : un front servi depuis un autre domaine doit pouvoir appeler l'API depuis le navigateur. L'API est publique et n'utilise ni cookie ni session : l'origine `*` n'expose donc aucune donnée liée à un utilisateur. Sans `Location` exposé, un front ne pourrait pas lire l'URL du joueur créé.
 - **Alternatives écartées** : liste d'origines limitée pour `POST` (CORS ne protège que les navigateurs : un `curl` passerait quand même, et la protection des écritures relève de l'authentification, voir « Hors périmètre ») ; configuration CORS dans API Gateway (règle séparée du code, invisible dans les tests).
 
@@ -294,6 +294,12 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Pourquoi** : avec une position, une création entre deux pages ne répète ni ne saute aucun joueur, ce que permet un ordre de tri sans égalité possible (`rank`, `points`, puis `id`). Une limite par défaut borne la réponse (une Lambda derrière API Gateway ne renvoie pas plus de 6 Mo) tout en laissant le jeu initial complet sur la première page, sans changer le format attendu. Un pays inconnu est une erreur de requête, comme à la création, plutôt qu'une liste vide qui masquerait une faute de frappe.
 - **Alternatives écartées** : curseur par décalage (une création décale les pages) ; pas de limite par défaut (réponse non bornée) ; refuser les paramètres inconnus (gênant pour un paramètre ajouté par un proxy ou un outil, sans intérêt pour une lecture).
 - **Limite connue** : chaque page relit tous les joueurs (D27). Au-delà de quelques milliers, il faudrait un index trié.
+
+## D43. Journaux structurés et endpoint de santé
+
+- **Décision** : un journal JSON par requête (méthode, chemin sans paramètres, statut, durée) via `@aws-lambda-powertools/logger`, avec l'identifiant de requête Lambda et l'indicateur de démarrage à froid. Seules les erreurs inattendues (`500`) sont journalisées comme erreurs, avec leur trace. Sur AWS, chaque réponse porte l'en-tête `X-Request-Id`, égal au `function_request_id` des journaux, et exposé en CORS. Le journal passe par un port `Logger`, injecté comme les autres dépendances. En local, `POWERTOOLS_DEV=true` les rend lisibles. `GET /health` répond `200 {"status":"ok"}` sans interroger la base.
+- **Pourquoi** : des journaux JSON se filtrent dans CloudWatch Logs Insights (par statut, par durée). Une erreur de requête (`400`, `404`) est un comportement normal et ne doit pas déclencher d'alerte. Si un client signale une `500`, il peut citer cet identifiant, qui retrouve directement le journal dans CloudWatch ; un en-tête vaut pour toutes les réponses sans modifier le format d'erreur. Sans paramètres, les journaux ne contiennent pas de données saisies par les clients. L'endpoint de santé indique que l'API tourne ; il reste gratuit, rapide, et une panne de la base n'en fait pas redémarrer les instances.
+- **Alternatives écartées** : `console.log` (texte libre, difficile à filtrer, identifiant de requête absent) ; Powertools importé directement dans `http/` (la couche HTTP dépendrait d'une bibliothèque liée à Lambda, et les tests auraient besoin de simuler la console) ; vérifier DynamoDB dans `/health` (coût à chaque appel, et une indisponibilité de la base se voit déjà par les `500`).
 
 ---
 

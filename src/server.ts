@@ -1,3 +1,4 @@
+import { Logger } from '@aws-lambda-powertools/logger';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { serve } from '@hono/node-server';
@@ -24,6 +25,7 @@ const port = Number(process.env['PORT'] ?? 3000);
 const app = createApp({
   useCases: new PlayerUseCases(await createRepository()),
   cdnBaseUrl: requireEnv('CDN_BASE_URL'),
+  logger: new Logger({ serviceName: 'tenisu-api' }),
 });
 
 serve({ fetch: app.fetch, port }, (info) => {
