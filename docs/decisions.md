@@ -222,6 +222,12 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Alternatives écartées** : contrôler les valeurs dans le domaine en plus de Zod (double validation pour deux seules entrées) ; ignorer les valeurs invalides dans `computeStatistics` (masquerait une donnée corrompue au lieu de l'empêcher d'entrer).
 - **Limite connue** : la garantie repose sur les entrées, pas sur le type. Toute nouvelle entrée de données devra appliquer les mêmes règles, et une valeur écrite directement en base contournerait la validation.
 
+## D35. Conséquences assumées du modèle DynamoDB
+
+- **Décision** : l'identifiant est réservé par le compteur avant la transaction de création. Un `409` consomme donc un identifiant : la suite des id peut avoir des trous. La liste des joueurs passe par le GSI, dont les lectures sont à cohérence éventuelle : un joueur tout juste créé peut manquer pendant un court instant dans `GET /players`, alors que `GET /players/{id}` lit la table avec une lecture fortement cohérente. Une annulation pour `TransactionConflict` sur l'élément de nom est traitée comme un doublon (`409`).
+- **Pourquoi** : une transaction DynamoDB ne renvoie pas la valeur d'un compteur incrémenté, il faut donc le lire avant. Les id n'ont aucune valeur métier : leur seule exigence est l'unicité. Un GSI ne propose pas de lecture fortement cohérente, et le décalage est sans conséquence ici. Un `TransactionConflict` sur le nom signifie qu'une création simultanée du même nom est en cours.
+- **Alternatives écartées** : vérifier le nom avant de réserver l'id (une lecture de plus à chaque création, pour éviter des trous sans importance) ; Scan fortement cohérent de la table pour la liste (exclu par D20).
+
 ---
 
 ## Choix sur les données
