@@ -36,8 +36,8 @@ Avant de considérer une tâche terminée : `npm run lint && npm run typecheck &
 src/
   domain/        # entités, règles métier, référentiel des pays : fonctions pures, aucune dépendance (ni AWS, ni Hono, ni Zod)
   application/   # cas d'usage : orchestrent le domaine via les ports
-  ports/         # interfaces (PlayerRepository, ImageStorage…)
-  adapters/      # implémentations : in-memory, DynamoDB, S3
+  ports/         # interfaces (PlayerRepository, Logger)
+  adapters/      # implémentations : in-memory, DynamoDB
   http/          # routes Hono/OpenAPI, schémas Zod, mapping des erreurs
   handler.ts     # point d'entrée Lambda : assemble les dépendances (injection manuelle)
   seed/          # conversion validée des données initiales
@@ -55,9 +55,8 @@ Règles :
 
 ## REST et erreurs
 
-- Routes : `GET /players`, `GET /players/{id}`, `POST /players`, `GET /stats`, `GET /countries`, `POST /players/{id}/picture`, `GET /health`, `GET /docs`.
+- Routes : `GET /players`, `GET /players/{id}`, `POST /players`, `GET /stats`, `GET /countries`, `GET /health`, `GET /docs`.
 - `POST /players` répond `201` avec un header `Location`. L'`id` est généré par le serveur (compteur atomique DynamoDB) ; un `id` dans le corps est refusé (`400`).
-- `POST /players/{id}/picture` répond `200` avec un formulaire POST présigné S3.
 - Erreurs au format RFC 7807 (`application/problem+json`) via un handler d'erreurs unique :
   `400` validation (y compris id non numérique dans l'URL, pays inconnu), `404` ressource introuvable, `409` joueur déjà existant (même prénom et nom, sans tenir compte de la casse ni des accents), `415` corps non JSON, `500` générique sans détail interne.
 - Les erreurs métier sont des classes typées du domaine (`PlayerNotFoundError`…), traduites en HTTP uniquement dans `http/`.
@@ -92,7 +91,7 @@ Règles :
 - La branche `main` est protégée : tout passe par une pull request dont la CI est verte.
 - Branche, commits et PR contiennent l'identifiant Linear : branche `ten-12-images-s3`, PR `TEN-12 Images S3 + CloudFront`. Un ticket par PR.
 - Le job de CI s'appelle `ci` (nom utilisé par la protection de branche).
-- Toute décision d'architecture ou de périmètre est ajoutée à `docs/decisions.md` (quoi, pourquoi, alternatives écartées).
+- Toute décision d'architecture ou de périmètre est ajoutée au journal du cycle en cours, dans `docs/decisions/` (quoi, pourquoi, alternatives écartées), et `docs/etat-actuel.md` est mis à jour si elle change une règle (D44).
 - Ne jamais committer de secret ni de clé AWS ; l'accès AWS en CI passe par OIDC.
 
 ## Infra
@@ -100,13 +99,15 @@ Règles :
 - `infra/bootstrap` (state S3, OIDC, rôle de déploiement) s'applique à la main ; `infra/` se déploie par la CI sur `main` (D38).
 - Région : eu-north-1 (Stockholm). CloudFront est global ; un éventuel certificat ACM pour un domaine personnalisé doit être créé en us-east-1.
 - Profil AWS local : `tenisu` (IAM Identity Center, `aws sso login --profile tenisu`, puis `AWS_PROFILE=tenisu`).
-- Lambdas en arm64 ; `sharp` installé pour `linux-arm64` au packaging (D30).
-- Throttling API Gateway : 50 req/s, burst 100 ; reserved concurrency 10 (API) et 2 (traitement des photos) ; budget 5 USD/mois hors Terraform (D32).
+- Lambda en arm64 (D30).
+- Throttling API Gateway : 50 req/s, burst 100 ; reserved concurrency 10 ; budget 5 USD/mois hors Terraform (D32).
 
 ## Hors périmètre (sauf ticket explicite)
 
-Authentification, limite de débit par adresse IP (WAF), autre base de données, framework front.
+Authentification, limite de débit par adresse IP (WAF), upload de photo (D24), autre base de données, front.
 
-## Décisions du projet
+## État actuel du projet
 
-@docs/decisions.md
+Le journal `docs/decisions/` n'est à lire que pour connaître le motif d'une décision (`Dn`).
+
+@docs/etat-actuel.md

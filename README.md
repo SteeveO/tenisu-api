@@ -4,23 +4,62 @@
 
 API REST de statistiques de joueurs de tennis, réalisée pour le test technique L'Atelier.
 
-> Projet en cours de construction : ce README sera complété au fil des tickets (lancement local, URL déployée, exemples de requêtes).
+- **API déployée :** https://os6aj9jux6.execute-api.eu-north-1.amazonaws.com
+- **Documentation interactive (Swagger UI) :** https://os6aj9jux6.execute-api.eu-north-1.amazonaws.com/docs
 
-## Stack
+## Essayer l'API
 
-Node 22, TypeScript strict, [Hono](https://hono.dev) dans une Lambda AWS derrière API Gateway, DynamoDB, S3 + CloudFront, Terraform, Vitest. Les choix sont justifiés dans le [journal des décisions](docs/decisions.md).
+```bash
+API=https://os6aj9jux6.execute-api.eu-north-1.amazonaws.com
 
-## Démarrage
+curl "$API/players"                          # joueurs, du meilleur au moins bon
+curl "$API/players/52"                       # un joueur
+curl "$API/stats"                            # meilleur pays, IMC moyen, taille médiane
+curl "$API/countries"                        # pays acceptés à la création
+curl "$API/players?sex=F&country=USA&limit=1" # filtres et pagination
+curl "$API/health"                           # l'API répond-elle ?
+```
 
-Aucun compte AWS n'est nécessaire.
+**Tri :** par `rank`, puis par `points`. Les données mélangent les circuits masculin et féminin, dont les points ne sont pas comparables, et elles sont incohérentes (Nadal n°1 avec moins de points que Djokovic n°2) : le classement fourni fait foi.
 
-Avec Docker ou Podman, sans installer Node :
+**Ratio par pays :** total des victoires du pays sur le total de ses matchs, pas la moyenne des ratios des joueurs.
+
+Créer un joueur ; si le joueur existe déjà (créé par un autre relecteur, par exemple), la réponse est `409` :
+
+```bash
+curl -i -X POST "$API/players" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "firstname": "Carlos",
+    "lastname": "Alcaraz",
+    "shortname": "C.ALC",
+    "sex": "M",
+    "country": { "code": "ESP" },
+    "data": { "rank": 3, "points": 2000, "weight": 74000, "height": 183, "age": 21, "last": [1, 1, 0] }
+  }'
+```
+
+| Route               | Rôle                                                     | Réponses                   |
+| ------------------- | -------------------------------------------------------- | -------------------------- |
+| `GET /players`      | liste triée, filtres `sex`, `country`, `limit`, `cursor` | `200`, `400`               |
+| `GET /players/{id}` | un joueur                                                | `200`, `400`, `404`        |
+| `POST /players`     | création, avec un header `Location`                      | `201`, `400`, `409`, `415` |
+| `GET /stats`        | statistiques demandées                                   | `200`                      |
+| `GET /countries`    | pays disponibles, avec leur drapeau                      | `200`                      |
+| `GET /health`       | état de l'API                                            | `200`                      |
+| `GET /docs`         | Swagger UI (spécification sur `/openapi.json`)           | `200`                      |
+
+Les erreurs suivent la RFC 7807 (`application/problem+json`). Sur AWS, chaque réponse porte un en-tête `X-Request-Id` qui retrouve le journal correspondant dans CloudWatch.
+
+## Lancer le projet en local
+
+Avec Docker ou Podman, sans Node ni compte AWS :
 
 ```bash
 docker compose up   # ou : podman compose up
 ```
 
-L'API répond sur http://localhost:3000 et sa documentation sur http://localhost:3000/docs. La commande lance DynamoDB Local et LocalStack (S3), charge les joueurs et les images, puis démarre l'API. Après une modification du code ou des données, ajouter `--build`.
+L'API répond sur http://localhost:3000, sa documentation sur http://localhost:3000/docs. La commande lance DynamoDB Local et LocalStack (S3), charge les joueurs et les images, puis démarre l'API. Après une modification du code ou des données, ajouter `--build`.
 
 Pour développer (Node 22, `nvm use` lit le fichier `.nvmrc`), l'API tourne sur la machine et se recharge à chaque modification :
 
@@ -37,34 +76,32 @@ npm install
 npm run dev:memory
 ```
 
-## Scripts
+## Tests et qualité
+
+```bash
+npm test                        # tests unitaires, sans réseau
+npm run lint && npm run typecheck
+
+docker compose up -d dynamodb   # laisser quelques secondes à DynamoDB Local pour démarrer
+npm run test:integration        # contrat et transactions
+```
+
+Le domaine est testé en priorité, cas limites compris. Un même jeu de tests de contrat tourne sur le dépôt en mémoire et sur DynamoDB.
 
 | Commande                     | Rôle                                                           |
 | ---------------------------- | -------------------------------------------------------------- |
 | `npm run dev`                | API locale sur DynamoDB Local, rechargée à chaque modification |
 | `npm run dev:memory`         | API locale en mémoire, sans conteneur                          |
-| `npm test`                   | tests unitaires (aucun réseau)                                 |
+| `npm test`                   | tests unitaires                                                |
 | `npm run test:coverage`      | tests unitaires avec rapport de couverture                     |
 | `npm run test:integration`   | tests d'intégration sur DynamoDB Local                         |
 | `npm run lint`               | ESLint (dont les règles d'architecture) et Prettier            |
+| `npm run typecheck`          | vérification des types                                         |
 | `npm run format`             | formate le code avec Prettier                                  |
-| `npm run generate:countries` | régénère le référentiel des pays du domaine                    |
-| `npm run prepare:images`     | prépare une fois les photos et drapeaux committés              |
+| `npm run build`              | bundle de la Lambda                                            |
 | `npm run seed`               | ajoute les données manquantes et les images, idempotent        |
-| `npm run typecheck`          | vérification des types (`tsc --noEmit`)                        |
-
-## Déploiement
-
-API déployée : https://os6aj9jux6.execute-api.eu-north-1.amazonaws.com (documentation sur [`/docs`](https://os6aj9jux6.execute-api.eu-north-1.amazonaws.com/docs)).
-
-Un push sur `main` déploie l'API sur AWS avec Terraform, une fois la CI réussie, via OIDC et sans clé AWS stockée. La première mise en place se fait une seule fois avec un compte administrateur :
-
-```bash
-aws sso login --profile tenisu
-cd infra/bootstrap
-AWS_PROFILE=tenisu terraform init
-AWS_PROFILE=tenisu terraform apply
-```
+| `npm run prepare:images`     | prépare une fois les photos et drapeaux committés              |
+| `npm run generate:countries` | régénère le référentiel des pays du domaine                    |
 
 ## Architecture
 
@@ -74,18 +111,60 @@ Architecture hexagonale : le métier ne dépend de rien, l'infrastructure dépen
 src/
   domain/        # entités et règles métier : fonctions pures, sans aucune dépendance
   application/   # cas d'usage : orchestrent le domaine via les ports
-  ports/         # interfaces (PlayerRepository, ImageStorage…)
-  adapters/      # implémentations des ports : in-memory, DynamoDB, S3
-  http/          # routes Hono, validation, traduction des erreurs en HTTP
+  ports/         # interfaces (PlayerRepository, Logger)
+  adapters/      # implémentations des ports : in-memory, DynamoDB
+  http/          # routes Hono/OpenAPI, validation, traduction des erreurs en HTTP
   seed/          # conversion validée des données initiales
   handler.ts     # point d'entrée Lambda : assemble les dépendances
   server.ts      # point d'entrée local, même assemblage que handler.ts
-scripts/         # seed, préparation des images
+scripts/         # seed, préparation des images, génération du référentiel des pays
 assets/          # données et images initiales, committées
-infra/           # Terraform
-docs/            # journal des décisions
+infra/           # Terraform (infra/bootstrap : state, OIDC, rôles de déploiement)
+docs/            # état actuel du projet et journal des décisions par cycle
 ```
 
 Les dépendances pointent vers l'intérieur (`http` → `application` → `domain`). Cette règle n'est pas qu'une convention : ESLint refuse qu'un fichier du domaine importe une autre couche, AWS, Hono ou Zod, et qu'un cas d'usage importe un adaptateur.
 
-Les drapeaux proviennent de [flag-icons](https://github.com/lipis/flag-icons) (licence MIT, copiée dans `assets/images/flags/LICENSE`).
+**Stack :** Node 22, TypeScript strict, [Hono](https://hono.dev) et `@hono/zod-openapi` dans une Lambda arm64 derrière API Gateway, DynamoDB, S3 + CloudFront, Terraform, Vitest.
+
+## Décisions clés
+
+Chaque choix est consigné avec son motif et les alternatives écartées dans le [journal des décisions](docs/decisions/v1/decisions.md). Les principaux :
+
+- **[D2](docs/decisions/v1/decisions.md#d2-pas-de-nestjs--architecture-hexagonale-explicite-avec-hono) — Hono et hexagonal écrit à la main, sans NestJS :** pour quelques routes sur Lambda, les frontières restent visibles et le démarrage à froid court.
+- **[D20](docs/decisions/v1/decisions.md#d20-modèle-dynamodb--une-seule-table-clés-préfixées-index-par-type) et [D21](docs/decisions/v1/decisions.md#d21-unicité-des-joueurs-garantie-par-transaction) — une table DynamoDB, unicité par transaction :** deux créations simultanées du même joueur ne peuvent pas réussir toutes les deux.
+- **[D36](docs/decisions/v1/decisions.md#d36-lapi-conserve-le-format-de-headtoheadjson) — le format de `headtohead.json` est conservé :** on ne casse pas un contrat de données fourni. Le domaine garde des noms explicites, la traduction se fait dans `http/`.
+- **[D34](docs/decisions/v1/decisions.md#d34-valeurs-des-joueurs-validées-aux-entrées-du-système) — validation à chaque entrée du système :** une taille à 0 ne peut pas entrer, ni par l'API ni par le seed, donc pas d'IMC infini.
+- **[D42](docs/decisions/v1/decisions.md#d42-filtres-et-pagination-de-get-players) — pagination par position dans le tri :** une création entre deux pages ne répète ni ne saute aucun joueur.
+- **[D38](docs/decisions/v1/decisions.md#d38-infrastructure-terraform-et-déploiement-par-oidc) — déploiement par OIDC :** aucune clé AWS stockée, et seul `main` peut déployer.
+
+## Livraison
+
+`main` est protégée : pull request et CI verte obligatoires, ni force push ni suppression, fusion en squash ([D29](docs/decisions/v1/decisions.md#d29-branche-main-protégée)). Chaque pull request reçoit en commentaire le `terraform plan` de ses changements, avec un rôle AWS en lecture seule. Un push sur `main` applique Terraform puis charge les données initiales, sans étape manuelle.
+
+L'infrastructure qui doit exister avant le premier déploiement (state Terraform, OIDC, rôles GitHub) est dans `infra/bootstrap`, appliquée une seule fois à la main avec un compte administrateur ([D38](docs/decisions/v1/decisions.md#d38-infrastructure-terraform-et-déploiement-par-oidc)). Elle est propre à mon compte AWS : un relecteur n'en a pas besoin, ni pour appeler l'API déployée ni pour lancer le projet en local.
+
+## Limites connues et ce que je ferais ensuite
+
+- **Upload de photos :** non réalisé. Les joueurs créés par l'API gardent `picture: null`. Le flux prévu est décrit dans [D24](docs/decisions/v1/decisions.md#d24-upload-de-photo--post-présigné-et-traitement-asynchrone) : POST présigné vers S3, puis traitement asynchrone par une Lambda.
+- **Authentification des écritures :** `POST /players` est public. J'ajouterais un authorizer JWT sur API Gateway.
+- **Limite de débit par adresse IP :** la limite actuelle (50 requêtes/s) est globale ; une limite par IP passerait par AWS WAF.
+- **Index trié :** chaque page relit tous les joueurs, ce qui reste négligeable à ce volume. Au-delà de quelques milliers, un index trié s'imposerait.
+- **Domaine personnalisé :** il permettrait notamment d'imposer TLS 1.2 au minimum sur CloudFront, ce que le certificat par défaut ne permet pas.
+
+## Utilisation de l'IA
+
+J'ai réalisé ce projet avec Claude Code, qui a écrit l'essentiel du code. J'ai travaillé ainsi :
+
+- **Le découpage et les décisions sont les miens :** tickets Linear, choix d'architecture et de périmètre, arbitrages. Le front et l'upload de photos ont par exemple été retirés sur décision de ma part.
+- **Relecture critique à chaque pull request :** je relisais les changements, une seconde instance de Claude aussi, et je décidais des remarques à retenir. Toutes les pull requests sont passées par la CI avant que je les fusionne.
+- **Décisions consignées au fil de l'eau** dans le journal, avec leurs motifs et les alternatives écartées, pour pouvoir justifier chaque choix.
+
+## Organisation du contexte
+
+La documentation sert aussi de contexte à un assistant IA qui découvre le projet. Elle suit donc le cycle de vie de l'application ([D44](docs/decisions/v1/decisions.md#d44-contexte-organisé-par-cycle-de-vie)) :
+
+- [`docs/etat-actuel.md`](docs/etat-actuel.md) décrit ce qui est vrai aujourd'hui, et il est seul chargé par défaut ;
+- `docs/decisions/v1/`, puis `v2/` à la prochaine grande évolution, conservent les décisions de chaque cycle, avec leurs motifs. Un cycle clos n'est plus modifié.
+
+L'assistant reçoit ainsi la vérité du moment sans relire tout l'historique, et ne consulte une décision passée que pour en connaître le motif.

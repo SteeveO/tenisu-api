@@ -185,7 +185,7 @@ describe('GET /players/{id}', () => {
     });
   });
 
-  it('returns a null picture when none was uploaded', async () => {
+  it('returns a null picture for a player without one', async () => {
     const response = await appWithPlayers(aPlayer({ id: 52 })).request('/players/52');
 
     expect(await response.json()).toMatchObject({ picture: null });
