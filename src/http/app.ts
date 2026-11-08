@@ -1,10 +1,18 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
+import { listCountries } from '../application/country-use-cases';
 import type { PlayerUseCases } from '../application/player-use-cases';
+import { presentCountry } from './country-presenter';
 import { presentPlayer, toNewPlayer } from './player-presenter';
 import { handleError, handleNotFound, RequestValidationError } from './problem';
-import { createPlayerRoute, getPlayerRoute, getStatisticsRoute, listPlayersRoute } from './routes';
+import {
+  createPlayerRoute,
+  getPlayerRoute,
+  getStatisticsRoute,
+  listCountriesRoute,
+  listPlayersRoute,
+} from './routes';
 
 export interface AppDependencies {
   readonly useCases: PlayerUseCases;
@@ -62,6 +70,15 @@ export function createApp({ useCases, cdnBaseUrl }: AppDependencies): OpenAPIHon
           countries: [...statistics.bestCountries.countries],
         },
       },
+      200,
+    );
+  });
+
+  app.openapi(listCountriesRoute, (c) => {
+    // The referential only changes with a deployment (D41).
+    c.header('Cache-Control', 'public, max-age=86400');
+    return c.json(
+      { countries: listCountries().map((country) => presentCountry(country, cdnBaseUrl)) },
       200,
     );
   });

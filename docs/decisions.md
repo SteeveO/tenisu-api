@@ -280,6 +280,12 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Pourquoi** : un front servi depuis un autre domaine doit pouvoir appeler l'API depuis le navigateur. L'API est publique et n'utilise ni cookie ni session : l'origine `*` n'expose donc aucune donnée liée à un utilisateur. Sans `Location` exposé, un front ne pourrait pas lire l'URL du joueur créé.
 - **Alternatives écartées** : liste d'origines limitée pour `POST` (CORS ne protège que les navigateurs : un `curl` passerait quand même, et la protection des écritures relève de l'authentification, voir « Hors périmètre ») ; configuration CORS dans API Gateway (règle séparée du code, invisible dans les tests).
 
+## D41. Format de `GET /countries`
+
+- **Décision** : `GET /countries` renvoie `{ "countries": [{ "code": "SUI", "name": "Suisse", "picture": "https://…/flags/ch.svg" }] }`, trié par nom selon l'ordre alphabétique français. Le cas d'usage est une simple fonction, sans port : le référentiel est une donnée statique du domaine, triée une seule fois au chargement. La réponse porte `Cache-Control: public, max-age=86400`, comme les drapeaux.
+- **Pourquoi** : même enveloppe que `GET /players` (D36), mêmes noms que l'objet `country` d'un joueur (`code`, `picture`), et le `code` renvoyé est directement celui que `POST /players` attend. Un tri par ordre des caractères placerait `Égypte` après `Zimbabwe`. Le référentiel ne change qu'au déploiement : un jour de cache évite des appels inutiles, et un changement reste visible dès le lendemain.
+- **Alternatives écartées** : une classe de cas d'usage injectée (aucune dépendance à injecter) ; exposer aussi le code ISO (détail interne, qui ne sert qu'à trouver le drapeau).
+
 ---
 
 ## Choix sur les données
