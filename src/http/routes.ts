@@ -83,7 +83,12 @@ export const listCountriesRoute = createRoute({
   path: '/countries',
   summary: 'List the countries accepted when creating a player',
   responses: {
-    200: json(CountryListSchema, 'Countries sorted by French name'),
+    200: {
+      ...json(CountryListSchema, 'Countries sorted by French name'),
+      headers: z.object({
+        'Cache-Control': z.string().openapi({ example: 'public, max-age=86400' }),
+      }),
+    },
     500: internalError,
   },
 });

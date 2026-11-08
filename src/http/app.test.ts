@@ -312,6 +312,12 @@ describe('GET /countries', () => {
     });
   });
 
+  it('can be cached for a day', async () => {
+    const response = await appWithPlayers().request('/countries');
+
+    expect(response.headers.get('Cache-Control')).toBe('public, max-age=86400');
+  });
+
   it('is documented in the OpenAPI specification', async () => {
     const response = await appWithPlayers().request('/openapi.json');
 

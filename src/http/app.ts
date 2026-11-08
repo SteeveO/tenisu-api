@@ -74,12 +74,14 @@ export function createApp({ useCases, cdnBaseUrl }: AppDependencies): OpenAPIHon
     );
   });
 
-  app.openapi(listCountriesRoute, (c) =>
-    c.json(
+  app.openapi(listCountriesRoute, (c) => {
+    // The referential only changes with a deployment (D41).
+    c.header('Cache-Control', 'public, max-age=86400');
+    return c.json(
       { countries: listCountries().map((country) => presentCountry(country, cdnBaseUrl)) },
       200,
-    ),
-  );
+    );
+  });
 
   app.doc31('/openapi.json', {
     openapi: '3.1.0',
