@@ -215,6 +215,13 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Pourquoi** : le domaine reste sans aucune dépendance, comme l'impose l'architecture, et ne charge pas de bibliothèque dans la Lambda. La table se relit dans une PR, et tout code accepté par l'API a forcément un nom et un drapeau.
 - **Alternatives écartées** : importer `i18n-iso-countries` dans le domaine (contraire à la règle d'architecture) ; passer par un port et un adaptateur (de l'indirection pour des données statiques).
 
+## D34. Valeurs des joueurs validées aux entrées du système
+
+- **Décision** : `Player` est un type, sans contrôle des valeurs à l'exécution. Elles sont validées à chaque entrée du système : les schémas Zod de `POST /players` (`http/`) et la conversion du JSON initial utilisée par le seed. Bornes : `weightGrams`, `heightCm`, `age` et `rank` entiers strictement positifs, `points` entier positif ou nul, `lastResults` composé de 0 et de 1. Une valeur hors bornes donne `400` ; poster une taille à 0 ne crée donc aucun joueur et ne peut pas produire un IMC infini. Le seed rejette une valeur invalide au lieu de la convertir.
+- **Pourquoi** : une seule responsabilité par couche. Le domaine calcule sur des données déjà garanties et reste composé de fonctions simples, sans validation dupliquée.
+- **Alternatives écartées** : contrôler les valeurs dans le domaine en plus de Zod (double validation pour deux seules entrées) ; ignorer les valeurs invalides dans `computeStatistics` (masquerait une donnée corrompue au lieu de l'empêcher d'entrer).
+- **Limite connue** : la garantie repose sur les entrées, pas sur le type. Toute nouvelle entrée de données devra appliquer les mêmes règles, et une valeur écrite directement en base contournerait la validation.
+
 ---
 
 ## Choix sur les données
