@@ -116,7 +116,7 @@ src/
 scripts/         # seed, préparation des images, génération du référentiel des pays
 assets/          # données et images initiales, committées
 infra/           # Terraform (infra/bootstrap : state, OIDC, rôles de déploiement)
-docs/            # journal des décisions
+docs/            # état actuel du projet et journal des décisions par cycle
 ```
 
 Les dépendances pointent vers l'intérieur (`http` → `application` → `domain`). Cette règle n'est pas qu'une convention : ESLint refuse qu'un fichier du domaine importe une autre couche, AWS, Hono ou Zod, et qu'un cas d'usage importe un adaptateur.
@@ -125,18 +125,18 @@ Les dépendances pointent vers l'intérieur (`http` → `application` → `domai
 
 ## Décisions clés
 
-Chaque choix est consigné avec son motif et les alternatives écartées dans le [journal des décisions](docs/decisions.md). Les principaux :
+Chaque choix est consigné avec son motif et les alternatives écartées dans le [journal des décisions](docs/decisions/v1/decisions.md). Les principaux :
 
-- **[D2](docs/decisions.md#d2-pas-de-nestjs--architecture-hexagonale-explicite-avec-hono) — Hono et hexagonal écrit à la main, sans NestJS :** pour quelques routes sur Lambda, les frontières restent visibles et le démarrage à froid court.
-- **[D20](docs/decisions.md#d20-modèle-dynamodb--une-seule-table-clés-préfixées-index-par-type) et [D21](docs/decisions.md#d21-unicité-des-joueurs-garantie-par-transaction) — une table DynamoDB, unicité par transaction :** deux créations simultanées du même joueur ne peuvent pas réussir toutes les deux.
-- **[D36](docs/decisions.md#d36-lapi-conserve-le-format-de-headtoheadjson) — le format de `headtohead.json` est conservé :** on ne casse pas un contrat de données fourni. Le domaine garde des noms explicites, la traduction se fait dans `http/`.
-- **[D34](docs/decisions.md#d34-valeurs-des-joueurs-validées-aux-entrées-du-système) — validation à chaque entrée du système :** une taille à 0 ne peut pas entrer, ni par l'API ni par le seed, donc pas d'IMC infini.
-- **[D42](docs/decisions.md#d42-filtres-et-pagination-de-get-players) — pagination par position dans le tri :** une création entre deux pages ne répète ni ne saute aucun joueur.
-- **[D38](docs/decisions.md#d38-infrastructure-terraform-et-déploiement-par-oidc) — déploiement par OIDC :** aucune clé AWS stockée, et seul `main` peut déployer.
+- **[D2](docs/decisions/v1/decisions.md#d2-pas-de-nestjs--architecture-hexagonale-explicite-avec-hono) — Hono et hexagonal écrit à la main, sans NestJS :** pour quelques routes sur Lambda, les frontières restent visibles et le démarrage à froid court.
+- **[D20](docs/decisions/v1/decisions.md#d20-modèle-dynamodb--une-seule-table-clés-préfixées-index-par-type) et [D21](docs/decisions/v1/decisions.md#d21-unicité-des-joueurs-garantie-par-transaction) — une table DynamoDB, unicité par transaction :** deux créations simultanées du même joueur ne peuvent pas réussir toutes les deux.
+- **[D36](docs/decisions/v1/decisions.md#d36-lapi-conserve-le-format-de-headtoheadjson) — le format de `headtohead.json` est conservé :** on ne casse pas un contrat de données fourni. Le domaine garde des noms explicites, la traduction se fait dans `http/`.
+- **[D34](docs/decisions/v1/decisions.md#d34-valeurs-des-joueurs-validées-aux-entrées-du-système) — validation à chaque entrée du système :** une taille à 0 ne peut pas entrer, ni par l'API ni par le seed, donc pas d'IMC infini.
+- **[D42](docs/decisions/v1/decisions.md#d42-filtres-et-pagination-de-get-players) — pagination par position dans le tri :** une création entre deux pages ne répète ni ne saute aucun joueur.
+- **[D38](docs/decisions/v1/decisions.md#d38-infrastructure-terraform-et-déploiement-par-oidc) — déploiement par OIDC :** aucune clé AWS stockée, et seul `main` peut déployer.
 
 ## Livraison
 
-`main` est protégée : pull request et CI verte obligatoires, ni force push ni suppression, fusion en squash ([D29](docs/decisions.md#d29-branche-main-protégée)). Chaque pull request reçoit en commentaire le `terraform plan` de ses changements, avec un rôle AWS en lecture seule. Un push sur `main` applique Terraform puis charge les données initiales, sans étape manuelle.
+`main` est protégée : pull request et CI verte obligatoires, ni force push ni suppression, fusion en squash ([D29](docs/decisions/v1/decisions.md#d29-branche-main-protégée)). Chaque pull request reçoit en commentaire le `terraform plan` de ses changements, avec un rôle AWS en lecture seule. Un push sur `main` applique Terraform puis charge les données initiales, sans étape manuelle.
 
 La mise en place initiale ne se fait qu'une fois, avec un compte administrateur :
 
@@ -149,7 +149,7 @@ AWS_PROFILE=tenisu terraform apply
 
 ## Limites connues et ce que je ferais ensuite
 
-- **Upload de photos :** non réalisé. Les joueurs créés par l'API gardent `picture: null`. Le flux prévu est décrit dans [D24](docs/decisions.md#d24-upload-de-photo--post-présigné-et-traitement-asynchrone) : POST présigné vers S3, puis traitement asynchrone par une Lambda.
+- **Upload de photos :** non réalisé. Les joueurs créés par l'API gardent `picture: null`. Le flux prévu est décrit dans [D24](docs/decisions/v1/decisions.md#d24-upload-de-photo--post-présigné-et-traitement-asynchrone) : POST présigné vers S3, puis traitement asynchrone par une Lambda.
 - **Authentification des écritures :** `POST /players` est public. J'ajouterais un authorizer JWT sur API Gateway.
 - **Limite de débit par adresse IP :** la limite actuelle (50 requêtes/s) est globale ; une limite par IP passerait par AWS WAF.
 - **Index trié :** chaque page relit tous les joueurs, ce qui reste négligeable à ce volume. Au-delà de quelques milliers, un index trié s'imposerait.
@@ -163,6 +163,11 @@ J'ai réalisé ce projet avec Claude Code, qui a écrit l'essentiel du code. J'a
 - **Relecture critique à chaque pull request :** une seconde instance relisait les changements, et je décidais des remarques à retenir. Toutes les pull requests sont passées par la CI avant que je les fusionne.
 - **Décisions consignées au fil de l'eau** dans le journal, avec leurs motifs et les alternatives écartées, pour pouvoir justifier chaque choix.
 
-## Faire évoluer le journal des décisions
+## Organisation du contexte
 
-`docs/decisions.md` sert aussi de contexte à un assistant IA qui découvre le projet. Un fichier unique convient à cette première version. Sur la durée, je l'organiserais par cycle de vie de l'application : un dossier par version majeure (`docs/decisions/v1/`, `v2/`…) qui fige les décisions de ce cycle, à côté d'un document court décrivant l'état actuel, seul chargé par défaut. L'assistant reçoit ainsi la vérité du moment sans relire tout l'historique, et ne consulte une décision passée que pour en connaître le motif.
+La documentation sert aussi de contexte à un assistant IA qui découvre le projet. Elle suit donc le cycle de vie de l'application ([D44](docs/decisions/v1/decisions.md#d44-contexte-organisé-par-cycle-de-vie)) :
+
+- [`docs/etat-actuel.md`](docs/etat-actuel.md) décrit ce qui est vrai aujourd'hui, et il est seul chargé par défaut ;
+- `docs/decisions/v1/`, puis `v2/` à la prochaine grande évolution, conservent les décisions de chaque cycle, avec leurs motifs. Un cycle clos n'est plus modifié.
+
+L'assistant reçoit ainsi la vérité du moment sans relire tout l'historique, et ne consulte une décision passée que pour en connaître le motif.

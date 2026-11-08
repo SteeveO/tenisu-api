@@ -3,6 +3,8 @@
 Chaque décision d'architecture ou de périmètre est consignée ici : ce qui a été choisi, pourquoi, et les alternatives écartées.
 Format : une entrée par décision, numérotée, jamais supprimée (si une décision est remplacée, on l'indique et on ajoute la nouvelle).
 
+> Cycle v1, clos : ce fichier est une archive. Ce qui est vrai aujourd'hui est dans [l'état actuel](../../etat-actuel.md).
+
 ---
 
 ## D1. Node 22 et TypeScript strict
@@ -304,6 +306,12 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Décision** : un journal JSON par requête (méthode, chemin sans paramètres, statut, durée) via `@aws-lambda-powertools/logger`, avec l'identifiant de requête Lambda et l'indicateur de démarrage à froid. Seules les erreurs inattendues (`500`) sont journalisées comme erreurs, avec leur trace. Sur AWS, chaque réponse porte l'en-tête `X-Request-Id`, égal au `function_request_id` des journaux, et exposé en CORS. Le journal passe par un port `Logger`, injecté comme les autres dépendances. En local, `POWERTOOLS_DEV=true` les rend lisibles. `GET /health` répond `200 {"status":"ok"}` sans interroger la base.
 - **Pourquoi** : des journaux JSON se filtrent dans CloudWatch Logs Insights (par statut, par durée). Une erreur de requête (`400`, `404`) est un comportement normal et ne doit pas déclencher d'alerte. Si un client signale une `500`, il peut citer cet identifiant, qui retrouve directement le journal dans CloudWatch ; un en-tête vaut pour toutes les réponses sans modifier le format d'erreur. Sans paramètres, les journaux ne contiennent pas de données saisies par les clients. L'endpoint de santé indique que l'API tourne ; il reste gratuit, rapide, et une panne de la base n'en fait pas redémarrer les instances.
 - **Alternatives écartées** : `console.log` (texte libre, difficile à filtrer, identifiant de requête absent) ; Powertools importé directement dans `http/` (la couche HTTP dépendrait d'une bibliothèque liée à Lambda, et les tests auraient besoin de simuler la console) ; vérifier DynamoDB dans `/health` (coût à chaque appel, et une indisponibilité de la base se voit déjà par les `500`).
+
+## D44. Contexte organisé par cycle de vie
+
+- **Décision** : `docs/etat-actuel.md` décrit ce qui est vrai aujourd'hui et il est seul chargé par défaut, via `CLAUDE.md`. Les décisions d'un cycle sont archivées dans `docs/decisions/v1/decisions.md`, puis `v2/`, etc., avec une numérotation continue. Un cycle clos n'est plus modifié ; l'état actuel est mis à jour dès qu'une décision change une règle.
+- **Pourquoi** : ce contexte sert aussi à un assistant IA qui découvre le projet. Il a besoin des règles en vigueur, sans relire à chaque session l'historique complet, décisions remplacées comprises. Le journal reste disponible quand il faut comprendre le motif d'un choix.
+- **Alternatives écartées** : un journal unique chargé en entier (son coût croît sans cesse, et il mêle décisions actives et abandonnées) ; des dossiers par version sans état actuel (une décision de v1 encore valable en v2 serait soit relue inutilement, soit ignorée) ; un fichier par décision avec un index (plus fin à charger, mais davantage de fichiers à maintenir pour ce volume).
 
 ---
 

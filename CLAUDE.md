@@ -91,7 +91,7 @@ Règles :
 - La branche `main` est protégée : tout passe par une pull request dont la CI est verte.
 - Branche, commits et PR contiennent l'identifiant Linear : branche `ten-12-images-s3`, PR `TEN-12 Images S3 + CloudFront`. Un ticket par PR.
 - Le job de CI s'appelle `ci` (nom utilisé par la protection de branche).
-- Toute décision d'architecture ou de périmètre est ajoutée à `docs/decisions.md` (quoi, pourquoi, alternatives écartées).
+- Toute décision d'architecture ou de périmètre est ajoutée au journal du cycle en cours, dans `docs/decisions/` (quoi, pourquoi, alternatives écartées), et `docs/etat-actuel.md` est mis à jour si elle change une règle (D44).
 - Ne jamais committer de secret ni de clé AWS ; l'accès AWS en CI passe par OIDC.
 
 ## Infra
@@ -106,6 +106,8 @@ Règles :
 
 Authentification, limite de débit par adresse IP (WAF), upload de photo (D24), autre base de données, front.
 
-## Décisions du projet
+## État actuel du projet
 
-@docs/decisions.md
+Le journal `docs/decisions/` n'est à lire que pour connaître le motif d'une décision (`Dn`).
+
+@docs/etat-actuel.md
