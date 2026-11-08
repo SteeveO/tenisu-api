@@ -72,6 +72,8 @@ export const PlayerSchema = z
   })
   .openapi('Player');
 
+export const PlayerListSchema = z.object({ players: z.array(PlayerSchema) }).openapi('PlayerList');
+
 export const StatisticsSchema = z
   .object({
     bestCountries: z.object({

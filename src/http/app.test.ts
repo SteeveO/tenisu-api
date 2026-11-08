@@ -47,7 +47,7 @@ describe('GET /players', () => {
     const response = await appWithPlayers().request('/players');
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual([]);
+    expect(await response.json()).toEqual({ players: [] });
   });
 
   it('returns players from best to worst', async () => {
@@ -56,9 +56,9 @@ describe('GET /players', () => {
       aPlayer({ id: 2, lastname: 'First', rank: 1 }),
     );
 
-    const players = await (await app.request('/players')).json();
+    const body = await (await app.request('/players')).json();
 
-    expect(players).toMatchObject([{ lastname: 'First' }, { lastname: 'Second' }]);
+    expect(body).toMatchObject({ players: [{ lastname: 'First' }, { lastname: 'Second' }] });
   });
 });
 
@@ -172,7 +172,7 @@ describe('POST /players', () => {
     const response = await postPlayer(app, bodyWithData({ height: 0 }));
 
     await expectProblem(response, 400, '/players');
-    expect(await (await app.request('/players')).json()).toEqual([]);
+    expect(await (await app.request('/players')).json()).toEqual({ players: [] });
   });
 
   it.each([

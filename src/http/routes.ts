@@ -2,6 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import {
   CreatePlayerBodySchema,
   PlayerIdParamsSchema,
+  PlayerListSchema,
   PlayerSchema,
   ProblemSchema,
   StatisticsSchema,
@@ -24,7 +25,7 @@ export const listPlayersRoute = createRoute({
   path: '/players',
   summary: 'List players from best to worst',
   responses: {
-    200: json(z.array(PlayerSchema), 'Players sorted by rank, then points'),
+    200: json(PlayerListSchema, 'Players sorted by rank, then points'),
     500: internalError,
   },
 });

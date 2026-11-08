@@ -34,10 +34,7 @@ export function createApp({ useCases, cdnBaseUrl }: AppDependencies): OpenAPIHon
 
   app.openapi(listPlayersRoute, async (c) => {
     const players = await useCases.listPlayers();
-    return c.json(
-      players.map((player) => presentPlayer(player, cdnBaseUrl)),
-      200,
-    );
+    return c.json({ players: players.map((player) => presentPlayer(player, cdnBaseUrl)) }, 200);
   });
 
   app.openapi(getPlayerRoute, async (c) => {
