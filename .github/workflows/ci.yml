@@ -149,3 +149,10 @@ jobs:
         run: |
           terraform init -input=false
           terraform apply -input=false -auto-approve
+
+      # Idempotent: inserts what is missing and overwrites no player (D37).
+      - name: Load the initial data
+        run: |
+          PLAYERS_TABLE="$(terraform -chdir=infra output -raw players_table)" \
+          IMAGES_BUCKET="$(terraform -chdir=infra output -raw images_bucket)" \
+          npx tsx scripts/seed.ts

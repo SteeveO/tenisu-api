@@ -76,13 +76,26 @@ async function retryWhileServicesStart(action: () => Promise<void>): Promise<voi
   }
 }
 
-async function uploadFile(key: string, path: string, contentType: string): Promise<void> {
+interface ImageType {
+  readonly contentType: string;
+  readonly cacheControl: string;
+}
+
+// A photo's key contains its hash: its content never changes (D18).
+const PHOTO: ImageType = {
+  contentType: 'image/webp',
+  cacheControl: 'public, max-age=31536000, immutable',
+};
+const FLAG: ImageType = { contentType: 'image/svg+xml', cacheControl: 'public, max-age=86400' };
+
+async function uploadFile(key: string, path: string, type: ImageType): Promise<void> {
   await s3.send(
     new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
       Body: await readFile(path),
-      ContentType: contentType,
+      ContentType: type.contentType,
+      CacheControl: type.cacheControl,
     }),
   );
 }
@@ -92,11 +105,11 @@ async function uploadImages(players: readonly Player[]): Promise<void> {
     ...players.flatMap((player) =>
       player.pictureKey === null
         ? []
-        : [uploadFile(player.pictureKey, initialPicturePath(player.id), 'image/webp')],
+        : [uploadFile(player.pictureKey, initialPicturePath(player.id), PHOTO)],
     ),
     ...COUNTRIES.map((country) => {
       const key = flagKey(country);
-      return uploadFile(key, join(IMAGES_DIRECTORY, key), 'image/svg+xml');
+      return uploadFile(key, join(IMAGES_DIRECTORY, key), FLAG);
     }),
   ]);
 }
