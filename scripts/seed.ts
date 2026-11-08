@@ -1,4 +1,4 @@
-// Loads the initial players and images. Idempotent (D22).
+// Inserts the missing initial players and uploads the images. Idempotent (D22, D37).
 // With DYNAMODB_ENDPOINT set (local), it also creates the table and the bucket;
 // on AWS these belong to Terraform.
 import { readFile } from 'node:fs/promises';
@@ -110,6 +110,6 @@ if (dynamoDbEndpoint !== undefined) {
 
 // Images first: a player must never reference a picture that is not stored yet.
 await uploadImages(players);
-await seedPlayers(DynamoDBDocumentClient.from(dynamoDb), tableName, players);
+const inserted = await seedPlayers(DynamoDBDocumentClient.from(dynamoDb), tableName, players);
 
-console.log(`Seeded ${String(players.length)} players into ${tableName} and ${bucketName}`);
+console.log(`Inserted ${String(inserted)} of ${String(players.length)} players into ${tableName}`);

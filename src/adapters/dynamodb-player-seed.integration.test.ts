@@ -52,9 +52,32 @@ describe('seedPlayers', () => {
   });
 
   it('does not duplicate players when run twice', async () => {
-    await seed();
-    await seed();
+    await expect(seed()).resolves.toBe(2);
+    await expect(seed()).resolves.toBe(0);
 
+    await expect(repository.findAll()).resolves.toHaveLength(2);
+  });
+
+  it('does not overwrite an existing player', async () => {
+    await seed();
+    const changed = aPlayer({
+      id: 52,
+      firstname: 'Novak',
+      lastname: 'Djokovic',
+      pictureKey: 'players/52/other.webp',
+    });
+
+    await seedPlayers(documentClient, tableName, [changed]);
+
+    await expect(repository.findById(52)).resolves.toEqual(initialPlayers[0]);
+  });
+
+  it('skips an initial player whose name is already taken', async () => {
+    await repository.create(aNewPlayer({ firstname: 'Novak', lastname: 'Djokovic' }));
+
+    await expect(seed()).resolves.toBe(1);
+
+    await expect(repository.findById(52)).resolves.toBeNull();
     await expect(repository.findAll()).resolves.toHaveLength(2);
   });
 
