@@ -95,7 +95,8 @@ jobs:
         working-directory: infra
         run: |
           terraform init -input=false
-          terraform plan -input=false -no-color -lock=false -concise > plan.txt
+          terraform plan -input=false -lock=false -out=plan.tfplan
+          terraform show -no-color plan.tfplan > plan.txt
 
       - name: Comment the plan on the pull request
         env:
