@@ -18,9 +18,11 @@ const MAX_PAGE_SIZE = 100;
 
 export const PlayerListQuerySchema = z.object({
   sex: z
-    .enum(['M', 'F'])
+    .string()
+    .toUpperCase()
+    .pipe(z.enum(['M', 'F']))
     .optional()
-    .openapi({ param: { name: 'sex', in: 'query' } }),
+    .openapi({ param: { name: 'sex', in: 'query' }, type: 'string', enum: ['M', 'F'] }),
   country: z
     .string()
     .toUpperCase()

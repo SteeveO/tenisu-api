@@ -93,6 +93,12 @@ describe('GET /players filters and pagination', () => {
     expect(page.ids).toEqual([1]);
   });
 
+  it('accepts a lowercase sex', async () => {
+    const page = await getPage(appWithPlayers(...players), 'sex=f');
+
+    expect(page.ids).toEqual([2]);
+  });
+
   it('walks through the pages', async () => {
     const app = appWithPlayers(...players);
 
