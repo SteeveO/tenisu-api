@@ -152,6 +152,33 @@ data "aws_iam_policy_document" "deploy" {
     resources = ["*"]
   }
 
+  # Bucket management for Terraform, objects for the seed.
+  statement {
+    sid     = "ManageImages"
+    actions = ["s3:*"]
+    resources = [
+      "arn:aws:s3:::tenisu-images-*",
+      "arn:aws:s3:::tenisu-images-*/*",
+    ]
+  }
+
+  # CloudFront ids are generated: resources cannot be narrowed by name.
+  statement {
+    sid     = "ManageDistributions"
+    actions = ["cloudfront:*"]
+    resources = [
+      "arn:aws:cloudfront::${local.account_id}:distribution/*",
+      "arn:aws:cloudfront::${local.account_id}:origin-access-control/*",
+    ]
+  }
+
+  # These two actions support no resource-level restriction.
+  statement {
+    sid       = "CreateDistributions"
+    actions   = ["cloudfront:CreateDistribution", "cloudfront:CreateOriginAccessControl"]
+    resources = ["*"]
+  }
+
   # Limited to the Lambda roles: the deployment role cannot change itself.
   statement {
     sid = "ManageLambdaRoles"
@@ -256,6 +283,22 @@ data "aws_iam_policy_document" "plan" {
       "arn:aws:apigateway:${local.region}::/apis",
       "arn:aws:apigateway:${local.region}::/apis/*",
       "arn:aws:apigateway:${local.region}::/tags/*",
+    ]
+  }
+
+  # On the bucket only: s3:GetObject applies to objects and is not granted.
+  statement {
+    sid       = "ReadImagesBucket"
+    actions   = ["s3:Get*", "s3:ListBucket"]
+    resources = ["arn:aws:s3:::tenisu-images-*"]
+  }
+
+  statement {
+    sid     = "ReadDistributions"
+    actions = ["cloudfront:Get*", "cloudfront:List*"]
+    resources = [
+      "arn:aws:cloudfront::${local.account_id}:distribution/*",
+      "arn:aws:cloudfront::${local.account_id}:origin-access-control/*",
     ]
   }
 
