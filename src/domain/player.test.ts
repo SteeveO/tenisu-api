@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sortPlayersFromBestToWorst } from './player';
+import { playerNameKey, sortPlayersFromBestToWorst } from './player';
 import { aPlayer } from './player.fixtures';
 
 const idsOf = (players: readonly { id: number }[]) => players.map((player) => player.id);
@@ -40,5 +40,27 @@ describe('sortPlayersFromBestToWorst', () => {
     sortPlayersFromBestToWorst(players);
 
     expect(idsOf(players)).toEqual([1, 2]);
+  });
+});
+
+describe('playerNameKey', () => {
+  it('builds a key from both names', () => {
+    expect(playerNameKey('Novak', 'Djokovic')).toBe('novak#djokovic');
+  });
+
+  it('ignores case, accents and extra spaces', () => {
+    expect(playerNameKey('  JO-Wilfried ', 'Tsonga')).toBe(playerNameKey('jo-wilfried', 'tsonga'));
+    expect(playerNameKey('Gaël', 'Monfils')).toBe(playerNameKey('Gael', 'Monfils'));
+    expect(playerNameKey('Juan  Martin', 'del Potro')).toBe(
+      playerNameKey('Juan Martin', 'del  Potro'),
+    );
+  });
+
+  it('keeps distinct names distinct', () => {
+    expect(playerNameKey('Venus', 'Williams')).not.toBe(playerNameKey('Serena', 'Williams'));
+  });
+
+  it('cannot be confused by a separator inside a name', () => {
+    expect(playerNameKey('a#b', 'c')).not.toBe(playerNameKey('a', 'b#c'));
   });
 });

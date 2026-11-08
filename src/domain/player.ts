@@ -21,6 +21,27 @@ export interface Player {
   readonly lastResults: readonly MatchResult[];
 }
 
+/** A player as described by a client: the id and the picture are assigned by the system. */
+export type NewPlayer = Omit<Player, 'id' | 'pictureKey'>;
+
+/**
+ * Identifies a player by name, regardless of case, accents and extra spaces.
+ * '#' separates the two names in the key, so it is treated like a space:
+ * "a#b c" and "a b#c" must not collide.
+ */
+export function playerNameKey(firstname: string, lastname: string): string {
+  return `${normalizeName(firstname)}#${normalizeName(lastname)}`;
+}
+
+function normalizeName(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/\p{Mark}/gu, '')
+    .toLowerCase()
+    .replace(/[\s#]+/g, ' ')
+    .trim();
+}
+
 /**
  * Sorts players from best to worst: rank first, since points are not comparable
  * across the men's and women's tours, then highest points on equal rank.
