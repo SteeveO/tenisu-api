@@ -43,6 +43,7 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D7. Images servies par S3 et CloudFront ; la base stocke des clés
 
+- **Statut** : format des clés de photos précisé par D18 (`players/{id}/{hash}.webp`).
 - **Décision** : bucket S3 privé, lu uniquement par CloudFront (Origin Access Control). En base, on stocke des clés (`players/{id}.webp`) ; l'URL publique est construite à la réponse à partir de `CDN_BASE_URL`.
 - **Pourquoi** : plus de dépendance au domaine tiers d'origine ; changer de domaine ou de CDN ne demande aucune migration de données. CloudFront fait partie de la stack client.
 - **Alternatives écartées** : conserver les URLs d'origine (dépendance externe sans garantie) ; servir les images via la Lambda (coûteux, limité à 6 Mo par réponse).
@@ -55,6 +56,7 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D9. Upload de photo par URL S3 présignée
 
+- **Statut** : remplacée par D24 (POST présigné et traitement asynchrone).
 - **Décision** : `POST /players/{id}/picture` renvoie une URL de téléversement présignée ; le client envoie le fichier directement dans S3. L'URL impose le type d'image et une taille maximale.
 - **Pourquoi** : l'image ne transite pas par la Lambda (limite de 6 Mo, encodage base64 coûteux) ; la création d'un joueur reste un JSON simple.
 - **Alternatives écartées** : image en base64 dans le `POST /players` (lourd, limité, mélange les responsabilités).
@@ -174,6 +176,7 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D28. Protection contre les abus et maîtrise des coûts
 
+- **Statut** : remplacée par D32 (limite de débit relevée, concurrence réservée ajustée, budget en USD).
 - **Décision** : limite de débit sur le stage API Gateway (10 requêtes/s, pics à 20), plafond de concurrence réservée sur la Lambda, alerte AWS Budgets à 5 €.
 - **Pourquoi** : les routes d'écriture sont publiques ; ces trois verrous plafonnent l'usage et le coût sans complexité.
 - **Limite connue** : la limitation d'API Gateway HTTP API est globale, pas par adresse IP. Une limite par IP nécessite AWS WAF (payant) devant CloudFront : à proposer avec l'authentification des routes d'écriture.
@@ -195,6 +198,16 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Pourquoi** : émuler l'invocation d'une Lambda par un événement S3 dans LocalStack demande Docker dans Docker, pour un gain faible ; la logique est couverte par les tests unitaires, et le câblage par la vérification sur l'environnement déployé.
 - **Alternatives écartées** : test de bout en bout complet sur LocalStack (lourd et fragile).
 
+## D32. Limite de débit relevée et concurrence réservée modeste (remplace D28)
+
+- **Décision** :
+  - limite de débit sur le stage API Gateway : 50 requêtes/s, pics à 100 ;
+  - concurrence réservée : 10 pour la Lambda de l'API, 2 pour la Lambda de traitement des photos ;
+  - alerte AWS Budgets à 5 USD par mois (AWS Budgets compte en dollars ; budget `tenisu-monthly-5usd` créé dans la console, hors Terraform).
+- **Pourquoi** : les routes publiques sont plafonnées à deux niveaux. La limite de débit borne le nombre de requêtes ; la concurrence réservée borne le nombre d'exécutions simultanées, donc le coût Lambda, même si la limite de débit était mal réglée. Dix environnements d'exécution traitent largement 50 requêtes/s pour des réponses de quelques dizaines de millisecondes. Le quota du compte (400 exécutions simultanées en `eu-north-1`) permet ces réservations tout en laissant les 100 exécutions non réservées exigées par AWS.
+- **Alternatives écartées** : valeurs de D28 (10 requêtes/s, trop basses pour une démonstration ou un test de charge léger) ; aucune concurrence réservée (un seul verrou, celui d'API Gateway).
+- **Limite connue** : la limitation d'API Gateway HTTP API est globale, pas par adresse IP (voir « Hors périmètre »).
+
 ---
 
 ## Choix sur les données
@@ -209,5 +222,5 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 ## Hors périmètre (et ce que je ferais ensuite)
 
 - **Authentification des routes d'écriture** : non demandée ; je proposerais un authorizer JWT sur API Gateway (Cognito ou fournisseur d'identité du client).
-- **Limite de débit par adresse IP** : AWS WAF devant CloudFront (voir D28).
+- **Limite de débit par adresse IP** : AWS WAF devant CloudFront (voir D32).
 - **Index trié pour la pagination** : si le volume dépassait quelques milliers de joueurs (voir D27).
