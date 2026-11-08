@@ -281,6 +281,8 @@ describe('POST /players', () => {
     ['weight', 200001],
     ['height', 99],
     ['height', 251],
+    ['age', 0],
+    ['age', 101],
     ['height', 180.5],
     ['age', 0],
     ['rank', 0],
@@ -306,11 +308,11 @@ describe('POST /players', () => {
     const app = appWithPlayers();
 
     const lightest = await postPlayer(app, {
-      ...bodyWithData({ weight: 30000, height: 100 }),
+      ...bodyWithData({ weight: 30000, height: 100, age: 1 }),
       lastname: 'Lower',
     });
     const heaviest = await postPlayer(app, {
-      ...bodyWithData({ weight: 200000, height: 250 }),
+      ...bodyWithData({ weight: 200000, height: 250, age: 100 }),
       lastname: 'Upper',
     });
 
