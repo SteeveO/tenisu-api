@@ -41,6 +41,8 @@ export default tseslint.config(
   },
   {
     files: ['src/application/**/*.ts', 'src/ports/**/*.ts'],
+    // Tests may use the in-memory adapter instead of hand-written stubs.
+    ignores: ['src/**/*.test.ts'],
     rules: {
       'no-restricted-imports': [
         'error',

@@ -56,7 +56,7 @@ Règles :
 - `POST /players` répond `201` avec un header `Location`. L'`id` est généré par le serveur (compteur atomique DynamoDB) ; un `id` dans le corps est refusé (`400`).
 - `POST /players/{id}/picture` répond `200` avec un formulaire POST présigné S3.
 - Erreurs au format RFC 7807 (`application/problem+json`) via un handler d'erreurs unique :
-  `400` validation (y compris id non numérique dans l'URL, pays inconnu), `404` ressource introuvable, `409` joueur déjà existant (même prénom et nom, sans tenir compte de la casse ni des accents), `500` générique sans détail interne.
+  `400` validation (y compris id non numérique dans l'URL, pays inconnu), `404` ressource introuvable, `409` joueur déjà existant (même prénom et nom, sans tenir compte de la casse ni des accents), `415` corps non JSON, `500` générique sans détail interne.
 - Les erreurs métier sont des classes typées du domaine (`PlayerNotFoundError`…), traduites en HTTP uniquement dans `http/`.
 - Format de `GET /stats` : voir D15 (ex aequo tous renvoyés, liste vide = `200` avec `null`).
 
