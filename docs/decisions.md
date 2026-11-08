@@ -217,6 +217,7 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 
 ## D34. Valeurs des joueurs validées aux entrées du système
 
+- **Statut** : noms de champs de l'API et bornes hautes précisés par D36.
 - **Décision** : `Player` est un type, sans contrôle des valeurs à l'exécution. Elles sont validées à chaque entrée du système : les schémas Zod de `POST /players` (`http/`) et la conversion du JSON initial utilisée par le seed. Bornes : `weightGrams`, `heightCm`, `age` et `rank` entiers strictement positifs, `points` entier positif ou nul, `lastResults` composé de 0 et de 1. Une valeur hors bornes donne `400` ; poster une taille à 0 ne crée donc aucun joueur et ne peut pas produire un IMC infini. Le seed rejette une valeur invalide au lieu de la convertir.
 - **Pourquoi** : une seule responsabilité par couche. Le domaine calcule sur des données déjà garanties et reste composé de fonctions simples, sans validation dupliquée.
 - **Alternatives écartées** : contrôler les valeurs dans le domaine en plus de Zod (double validation pour deux seules entrées) ; ignorer les valeurs invalides dans `computeStatistics` (masquerait une donnée corrompue au lieu de l'empêcher d'entrer).
@@ -228,11 +229,12 @@ Format : une entrée par décision, numérotée, jamais supprimée (si une déci
 - **Pourquoi** : une transaction DynamoDB ne renvoie pas la valeur d'un compteur incrémenté, il faut donc le lire avant. Les id n'ont aucune valeur métier : leur seule exigence est l'unicité. Un GSI ne propose pas de lecture fortement cohérente, et le décalage est sans conséquence ici. Un `TransactionConflict` signifie seulement qu'une autre transaction touchait le même élément : elle peut échouer elle aussi, et répondre « ce joueur existe déjà » serait alors faux. Seule une condition échouée prouve que le nom est enregistré, et le SDK ne relance pas les transactions annulées.
 - **Alternatives écartées** : traduire `TransactionConflict` en `409` (réponse fausse si l'autre transaction échoue) ; vérifier le nom avant de réserver l'id (une lecture de plus à chaque création, pour éviter des trous sans importance) ; Scan fortement cohérent de la table pour la liste (exclu par D20).
 
-## D36. Format des joueurs dans l'API
+## D36. L'API conserve le format de `headtohead.json`
 
-- **Décision** : un joueur est renvoyé à plat, avec les unités dans les noms (`weightGrams`, `heightCm`, `lastResults`). `country` regroupe `code` (CIO), `name` et `picture` (URL du drapeau), et `picture` est l'URL de la photo ou `null`. `POST /players` reçoit les mêmes champs à plat, avec `countryCode`. Le corps est strict : un champ inconnu est refusé (`400`), ce qui couvre l'`id` (D14). La spécification OpenAPI est servie sur `/openapi.json` et Swagger UI sur `/docs`. Un corps qui n'est pas du JSON reçoit `415`.
-- **Pourquoi** : même logique que D15, un champ se comprend sans documentation. Le corps strict signale immédiatement une faute de frappe dans un nom de champ, au lieu de l'ignorer.
-- **Alternatives écartées** : reprendre tel quel le format de `headtohead.json` (`data.weight` sans unité, ce qui est précisément le piège de ces données) ; ignorer les champs inconnus (un `id` envoyé par le client serait silencieusement perdu).
+- **Décision** : un joueur est renvoyé dans la structure d'origine : `country` (`picture`, `code`), `picture`, et `data` (`rank`, `points`, `weight`, `height`, `age`, `last`). Les unités (grammes, centimètres) sont documentées dans la spécification OpenAPI. Seules les URLs d'images changent : elles pointent vers notre CDN, et `picture` vaut `null` tant qu'aucune photo n'est envoyée. Le domaine garde des noms explicites (`weightGrams`, `heightCm`, `lastResults`) ; la traduction se fait uniquement dans `http/`. `POST /players` reçoit la même structure, avec `country.code`, sans `id` ni `picture`. Le corps est strict : un champ inconnu est refusé (`400`). Un corps qui n'est pas du JSON reçoit `415`. La spécification est servie sur `/openapi.json`, Swagger UI sur `/docs`.
+- **Bornes de plausibilité** : en plus des bornes de D34, `data.height` est compris entre 100 et 250 cm et `data.weight` entre 30 000 et 200 000 g, car une valeur impossible fausserait l'IMC moyen. `country.code` est accepté en minuscules et converti en majuscules.
+- **Pourquoi** : un consommateur existant, par exemple un front déjà prêt, doit pouvoir utiliser l'API sans adaptation : on ne casse pas un contrat de données fourni. La clarté des unités est obtenue par la documentation et par les noms du domaine, sans changer le contrat.
+- **Alternatives écartées** : format à plat avec les unités dans les noms (`weightGrams`), plus lisible mais qui casse le contrat d'origine ; ignorer les champs inconnus (un `id` envoyé par le client serait silencieusement perdu).
 
 ---
 

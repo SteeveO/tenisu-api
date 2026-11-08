@@ -1,7 +1,7 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { PlayerUseCases } from '../application/player-use-cases';
-import { presentPlayer } from './player-presenter';
+import { presentPlayer, toNewPlayer } from './player-presenter';
 import { handleError, handleNotFound, RequestValidationError } from './problem';
 import { createPlayerRoute, getPlayerRoute, getStatisticsRoute, listPlayersRoute } from './routes';
 
@@ -46,7 +46,7 @@ export function createApp({ useCases, cdnBaseUrl }: AppDependencies): OpenAPIHon
   });
 
   app.openapi(createPlayerRoute, async (c) => {
-    const player = await useCases.createPlayer(c.req.valid('json'));
+    const player = await useCases.createPlayer(toNewPlayer(c.req.valid('json')));
     c.header('Location', `/players/${String(player.id)}`);
     return c.json(presentPlayer(player, cdnBaseUrl), 201);
   });

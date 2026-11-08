@@ -20,18 +20,34 @@ export const CreatePlayerBodySchema = z
     lastname: name.openapi({ example: 'Djokovic' }),
     shortname: name.openapi({ example: 'N.DJO' }),
     sex: z.enum(['M', 'F']),
-    countryCode: z.string().openapi({ description: 'IOC code', example: 'SRB' }),
-    rank: positiveInteger.openapi({ example: 2 }),
-    points: z.number().int().nonnegative().openapi({ example: 2542 }),
-    weightGrams: positiveInteger.openapi({ example: 80000 }),
-    heightCm: positiveInteger.openapi({ example: 188 }),
-    age: positiveInteger.openapi({ example: 31 }),
-    lastResults: z
-      .array(matchResult)
-      .max(100)
-      .openapi({ description: '1 is a win, 0 a loss', example: [1, 1, 0] }),
+    country: z.strictObject({
+      code: z.string().toUpperCase().openapi({ description: 'IOC code', example: 'SRB' }),
+    }),
+    data: z.strictObject({
+      rank: positiveInteger.openapi({ example: 2 }),
+      points: z.number().int().nonnegative().openapi({ example: 2542 }),
+      weight: z
+        .number()
+        .int()
+        .min(30000)
+        .max(200000)
+        .openapi({ description: 'Weight in grams', example: 80000 }),
+      height: z
+        .number()
+        .int()
+        .min(100)
+        .max(250)
+        .openapi({ description: 'Height in centimeters', example: 188 }),
+      age: positiveInteger.openapi({ example: 31 }),
+      last: z
+        .array(matchResult)
+        .max(100)
+        .openapi({ description: 'Last matches: 1 is a win, 0 a loss', example: [1, 1, 0] }),
+    }),
   })
   .openapi('CreatePlayerBody');
+
+export type CreatePlayerBody = z.output<typeof CreatePlayerBodySchema>;
 
 export const PlayerSchema = z
   .object({
@@ -41,17 +57,18 @@ export const PlayerSchema = z
     shortname: z.string(),
     sex: z.enum(['M', 'F']),
     country: z.object({
-      code: z.string().openapi({ description: 'IOC code', example: 'SRB' }),
-      name: z.string().openapi({ example: 'Serbie' }),
       picture: z.string().openapi({ description: 'Flag URL' }),
+      code: z.string().openapi({ description: 'IOC code', example: 'SRB' }),
     }),
     picture: z.string().nullable().openapi({ description: 'Null until a picture is uploaded' }),
-    rank: z.number().int(),
-    points: z.number().int(),
-    weightGrams: z.number().int(),
-    heightCm: z.number().int(),
-    age: z.number().int(),
-    lastResults: z.array(matchResult),
+    data: z.object({
+      rank: z.number().int(),
+      points: z.number().int(),
+      weight: z.number().int().openapi({ description: 'Weight in grams', example: 80000 }),
+      height: z.number().int().openapi({ description: 'Height in centimeters', example: 188 }),
+      age: z.number().int(),
+      last: z.array(matchResult).openapi({ description: 'Last matches: 1 is a win, 0 a loss' }),
+    }),
   })
   .openapi('Player');
 

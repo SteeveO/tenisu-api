@@ -13,14 +13,14 @@ const validBody = {
   lastname: 'Djokovic',
   shortname: 'N.DJO',
   sex: 'M',
-  countryCode: 'SRB',
-  rank: 2,
-  points: 2542,
-  weightGrams: 80000,
-  heightCm: 188,
-  age: 31,
-  lastResults: [1, 1, 0],
+  country: { code: 'SRB' },
+  data: { rank: 2, points: 2542, weight: 80000, height: 188, age: 31, last: [1, 1, 0] },
 };
+
+const bodyWithData = (data: Record<string, unknown>) => ({
+  ...validBody,
+  data: { ...validBody.data, ...data },
+});
 
 function appWith(repository: PlayerRepository) {
   return createApp({ useCases: new PlayerUseCases(repository), cdnBaseUrl: CDN });
@@ -63,18 +63,37 @@ describe('GET /players', () => {
 });
 
 describe('GET /players/{id}', () => {
-  it('returns the player with public image URLs', async () => {
+  it('returns the player in the format of the original data, with public URLs', async () => {
     const app = appWithPlayers(
-      aPlayer({ id: 52, countryCode: 'SUI', pictureKey: 'players/52/abc.webp' }),
+      aPlayer({
+        id: 65,
+        firstname: 'Stan',
+        lastname: 'Wawrinka',
+        shortname: 'S.WAW',
+        sex: 'M',
+        countryCode: 'SUI',
+        pictureKey: 'players/65/abc.webp',
+        rank: 21,
+        points: 1784,
+        weightGrams: 81000,
+        heightCm: 183,
+        age: 33,
+        lastResults: [1, 1, 1, 0, 1],
+      }),
     );
 
-    const response = await app.request('/players/52');
+    const response = await app.request('/players/65');
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
-      id: 52,
-      picture: `${CDN}/players/52/abc.webp`,
-      country: { code: 'SUI', name: 'Suisse', picture: `${CDN}/flags/ch.svg` },
+    expect(await response.json()).toEqual({
+      id: 65,
+      firstname: 'Stan',
+      lastname: 'Wawrinka',
+      shortname: 'S.WAW',
+      sex: 'M',
+      country: { picture: `${CDN}/flags/ch.svg`, code: 'SUI' },
+      picture: `${CDN}/players/65/abc.webp`,
+      data: { rank: 21, points: 1784, weight: 81000, height: 183, age: 33, last: [1, 1, 1, 0, 1] },
     });
   });
 
@@ -130,13 +149,13 @@ describe('POST /players', () => {
   });
 
   it('accepts a player without any match', async () => {
-    const response = await postPlayer(appWithPlayers(), { ...validBody, lastResults: [] });
+    const response = await postPlayer(appWithPlayers(), bodyWithData({ last: [] }));
 
     expect(response.status).toBe(201);
   });
 
   it('accepts zero points', async () => {
-    const response = await postPlayer(appWithPlayers(), { ...validBody, points: 0 });
+    const response = await postPlayer(appWithPlayers(), bodyWithData({ points: 0 }));
 
     expect(response.status).toBe(201);
   });
@@ -150,38 +169,76 @@ describe('POST /players', () => {
   it('refuses a height of 0 and creates no player', async () => {
     const app = appWithPlayers();
 
-    const response = await postPlayer(app, { ...validBody, heightCm: 0 });
+    const response = await postPlayer(app, bodyWithData({ height: 0 }));
 
     await expectProblem(response, 400, '/players');
     expect(await (await app.request('/players')).json()).toEqual([]);
   });
 
   it.each([
-    ['weightGrams', 0],
-    ['weightGrams', -1],
-    ['heightCm', 180.5],
+    ['weight', 29999],
+    ['weight', 200001],
+    ['height', 99],
+    ['height', 251],
+    ['height', 180.5],
     ['age', 0],
     ['rank', 0],
     ['points', -1],
+    ['last', [2]],
+  ])('refuses data.%s = %j', async (field, value) => {
+    const response = await postPlayer(appWithPlayers(), bodyWithData({ [field]: value }));
+
+    await expectProblem(response, 400, '/players');
+  });
+
+  it.each([
     ['sex', 'X'],
     ['firstname', '   '],
-    ['lastResults', [2]],
+    ['picture', 'https://example.com/a.png'],
   ])('refuses %s = %j', async (field, value) => {
     const response = await postPlayer(appWithPlayers(), { ...validBody, [field]: value });
 
     await expectProblem(response, 400, '/players');
   });
 
-  it('lists the invalid fields', async () => {
-    const response = await postPlayer(appWithPlayers(), { ...validBody, heightCm: undefined });
+  it('accepts the bounds of plausible weight and height', async () => {
+    const app = appWithPlayers();
 
-    expect(await response.json()).toMatchObject({ errors: [{ path: 'heightCm' }] });
+    const lightest = await postPlayer(app, {
+      ...bodyWithData({ weight: 30000, height: 100 }),
+      lastname: 'Lower',
+    });
+    const heaviest = await postPlayer(app, {
+      ...bodyWithData({ weight: 200000, height: 250 }),
+      lastname: 'Upper',
+    });
+
+    expect([lightest.status, heaviest.status]).toEqual([201, 201]);
+  });
+
+  it('lists the invalid fields', async () => {
+    const response = await postPlayer(appWithPlayers(), bodyWithData({ height: undefined }));
+
+    expect(await response.json()).toMatchObject({ errors: [{ path: 'data.height' }] });
   });
 
   it('responds 400 for an unknown country', async () => {
-    const response = await postPlayer(appWithPlayers(), { ...validBody, countryCode: 'XXX' });
+    const response = await postPlayer(appWithPlayers(), {
+      ...validBody,
+      country: { code: 'XXX' },
+    });
 
     await expectProblem(response, 400, '/players');
+  });
+
+  it('accepts a country code in lowercase and stores it in uppercase', async () => {
+    const response = await postPlayer(appWithPlayers(), {
+      ...validBody,
+      country: { code: 'srb' },
+    });
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ country: { code: 'SRB' } });
   });
 
   it('responds 400 for malformed JSON', async () => {
